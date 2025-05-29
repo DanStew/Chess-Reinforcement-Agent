@@ -15,10 +15,10 @@ class ChessPiece:
 
 class Pawn(ChessPiece):
     def __init__(self, x, y, color):
-        super.__init__(x, y, color)
+        super().__init__(x, y, color)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
-            "./images/pawn.jpg" if self.color == "White" else "./images/pawnBlack.jpg"
+            "./images/pawn.png" if self.color == "white" else "./images/pawnBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
         # Defining the actions a pawn can make
@@ -28,11 +28,11 @@ class Pawn(ChessPiece):
 
 class Rook(ChessPiece):
     def __init__(self, x, y, color):
-        super.__init__(x, y, color)
+        super().__init__(x, y, color)
         self.moved = False  # Used to check for possible castle
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
-            "./images/rook.jpg" if self.color == "White" else "./images/rookBlack.jpg"
+            "./images/rook.png" if self.color == "white" else "./images/rookBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
         # Defining the actions a rook can make
@@ -46,12 +46,12 @@ class Rook(ChessPiece):
 
 class Knight(ChessPiece):
     def __init__(self, x, y, color):
-        super.__init__(x, y, color)
+        super().__init__(x, y, color)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
-            "./images/knight.jpg"
-            if self.color == "White"
-            else "./images/knightBlack.jpg"
+            "./images/knight.png"
+            if self.color == "white"
+            else "./images/knightBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
         # Defining the actions a rook can make
@@ -62,10 +62,12 @@ class Knight(ChessPiece):
 
 class Bishop(ChessPiece):
     def __init__(self, x, y, color):
-        super.__init__(x, y, color)
+        super().__init__(x, y, color)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
-            "./images/bishop.jpg" if self.color == "White" else "./images/pawnBlack.jpg"
+            "./images/bishop.png"
+            if self.color == "white"
+            else "./images/bishopBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
         # Defining the actions a rook can make
@@ -79,10 +81,10 @@ class Bishop(ChessPiece):
 
 class Queen(ChessPiece):
     def __init__(self, x, y, color):
-        super.__init__(x, y, color)
+        super().__init__(x, y, color)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
-            "./images/queen.jpg" if self.color == "White" else "./images/pawnBlack.jpg"
+            "./images/queen.png" if self.color == "white" else "./images/queenBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
         # Defining the actions a rook can make
@@ -101,10 +103,10 @@ class Queen(ChessPiece):
 
 class King(ChessPiece):
     def __init__(self, x, y, color):
-        super.__init__(x, y, color)
+        super().__init__(x, y, color)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
-            "./images/king.jpg" if self.color == "White" else "./images/kingBlack.jpg"
+            "./images/king.png" if self.color == "white" else "./images/kingBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
         self.moved = False  # Used to check for possible Castle
@@ -139,26 +141,94 @@ class ChessGame:
     # Function to reset the environment
     def reset(self):
         # Creating the pieces for each player
-        player1.chessPieces = []
+        self.generateChessPieces(player1, 1)
+        self.generateChessPieces(player2, 2)
         # Initialising whose turn it is to play
         self.playerTurn = player1
+        # Displaying the initial chess board
+        self.displayInitialBoard()
+
+    # Code to generate the chess pieces for each player, and assign them to the player
+    def generateChessPieces(self, player, playerNmb):
+        # Determing the rows which the pieces will initially be located
+        if playerNmb == 1:
+            baseRow = 8
+            pawnRow = 7
+            color = "white"
+        else:
+            baseRow = 1
+            pawnRow = 2
+            color = "black"
+
+        # Defining the order of Pieces in the base row
+        piece_classes = [Rook, Knight, Bishop, Queen, King, Bishop, Knight, Rook]
+        # Creating all of the Pieces, at the correct locations
+        chessPieces = [
+            pieceClass(x + 1, baseRow, color)
+            for x, pieceClass in enumerate(piece_classes)
+        ]
+        # Adding a Pawn Piece in every square of the Pawn Row
+        chessPieces.extend(Pawn(i, pawnRow, color) for i in range(1, 9))
+
+        player.chessPieces = chessPieces
+
+    # Code to display the initial board to the screen
+    def displayInitialBoard(self):
+        # The code to display the board background (the squares) is below
+        current_x = 0
+        current_y = 0
+        # Looping through all the rows and columns of the board
+        for i in range(0, 8):
+            for j in range(0, 8):
+                # Determining the color of the square
+                # (i+j) % 2 == 0 can be used to determine whether the square is white or black, on a chess board
+                current_color = (240, 217, 181) if (i + j) % 2 == 0 else (125, 200, 93)
+                # Drawing the square to the screen
+                pygame.draw.rect(
+                    self.display,
+                    current_color,
+                    (current_x, current_y, self.blockSize, self.blockSize),
+                )
+                # Moving across the screen for each square
+                current_x += self.blockSize
+            # Updating the position values for the next row
+            current_y += self.blockSize
+            current_x = 0
+
+        pygame.display.update()  # Updating the screen to display the squares drawn
+
+        # The _update_ui() function is called to display the chess pieces to the screen
+        self._update_ui()
 
     # Function to process an action on the board, and call the function to perform the move
     def play_step(self, action):
-        pass
+        # Code to process and make an action will be displayed here...
+        # Code to update the UI once the action has been made
+        self._update_ui()
 
     # Function to update the outputted UI display
     def _update_ui(self):
-        pass
+        # Combining both players pieces into one array
+        chessPieces = player1.chessPieces + player2.chessPieces
+        # Looping through every chess piece and outputting them at their specified location
+        for chessPiece in chessPieces:
+            scaled_image = pygame.transform.scale(
+                chessPiece.image, (self.blockSize - 8, self.blockSize - 8)
+            )
+            self.display.blit(
+                scaled_image,
+                (
+                    (chessPiece.location[0] - 1) * self.blockSize + 4,
+                    (chessPiece.location[1] - 1) * self.blockSize + 4,
+                ),
+            )
+        # Updating the display to show the pieces
+        pygame.display.update()
 
     # Function to perform a move on the board
     def _move(self, action):
         pass
 
-
-player1 = ChessAgent()
-player2 = ChessAgent()
-game = ChessGame(player1, player2)
 
 if __name__ == "__main__":
     # Initialising the Players and the Game
