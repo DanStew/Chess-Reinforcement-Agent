@@ -8,7 +8,7 @@ pygame.init()
 # Classes to create the Chess Pieces
 class ChessPiece:
     def __init__(self, x, y, color):
-        self.location = [x, y]  # The location of the chess piece (1-8)
+        self.location = (x, y)  # The location of the chess piece (1-8)
         self.color = color  # Defining the color of the piece
         self.actions = []
 
@@ -116,6 +116,13 @@ class King(ChessPiece):
         ]
 
 
+# Defining the different colours used throughout the game
+LIGHT = (240, 217, 181)
+DARK = (105, 170, 75)
+HIGHLIGHT = (255, 239, 160)
+CURRENTHIGHIGHLIGHT = (250, 250, 210)
+
+
 # Defining the Chess Game Environment
 class ChessGame:
     # Initialising variables within the environment
@@ -135,6 +142,9 @@ class ChessGame:
         # Initialising the players within the game
         self.player1 = player1
         self.player2 = player2
+        # Tracking the selectedPieces and the highlighted sqaures
+        self.currentPiece = None
+        self.highlightedSquares = []
         # Initialising the state of the game
         self.reset()
 
@@ -144,7 +154,7 @@ class ChessGame:
         self.generateChessPieces(player1, 1)
         self.generateChessPieces(player2, 2)
         # Initialising whose turn it is to play
-        self.playerTurn = player1
+        self.playerTurn = player2
         # Displaying the initial chess board
         self.displayInitialBoard()
 
@@ -182,7 +192,7 @@ class ChessGame:
             for j in range(0, 8):
                 # Determining the color of the square
                 # (i+j) % 2 == 0 can be used to determine whether the square is white or black, on a chess board
-                current_color = (240, 217, 181) if (i + j) % 2 == 0 else (125, 200, 93)
+                current_color = LIGHT if (i + j) % 2 == 0 else DARK
                 # Drawing the square to the screen
                 pygame.draw.rect(
                     self.display,
@@ -201,10 +211,54 @@ class ChessGame:
         self._update_ui()
 
     # Function to process an action on the board, and call the function to perform the move
-    def play_step(self, action):
-        # Code to process and make an action will be displayed here...
+    def play_step(self, click):
+        # Converting the pixel number where the user has pressed into a position on the grid (1,1) --> (8,8)
+        (x, y) = (click[0] // self.blockSize + 1, click[1] // self.blockSize + 1)
+        # Getting the player's turn pieces
+        playerPieces = self.playerTurn.chessPieces
+        # Finding out if the player has pressed any of their own pieces
+        for chessPiece in playerPieces:
+            if chessPiece.location == (x, y):
+                if self.currentPiece != chessPiece:
+                    # If another piece was previously selected, revert its colour
+                    if self.currentPiece is not None:
+                        self.resetBoardDisplay()
+                    # Marking the current piece as highlighted
+                    self.currentPiece = chessPiece
+                    self.changeGridSpaceColor(chessPiece.location, CURRENTHIGHIGHLIGHT)
+                    self.highlightedSquares.append(chessPiece)
+                else:
+                    # Deselecting the current piece, and reverting its color
+                    self.currentPiece = None
+                    self.resetBoardDisplay()
+                break
         # Code to update the UI once the action has been made
         self._update_ui()
+
+    # Function to change the color of a rectangle at a positon in the chess grid to a specific colour
+    def changeGridSpaceColor(self, gridSpace, color):
+        pygame.draw.rect(
+            self.display,
+            color,
+            (
+                (gridSpace[0] - 1) * self.blockSize,
+                (gridSpace[1] - 1) * self.blockSize,
+                self.blockSize,
+                self.blockSize,
+            ),
+        )
+
+    # Function to revert all highlighted squares back to default
+    def resetBoardDisplay(self):
+        # Looping through all the highlighted squares
+        for piece in self.highlightedSquares:
+            # Resetting back to their original color
+            newColor = (
+                LIGHT if (piece.location[0] + piece.location[1]) % 2 == 0 else DARK
+            )
+            self.changeGridSpaceColor(piece.location, newColor)
+            # Removing the square from highlighted squares
+            self.highlightedSquares.remove(piece)
 
     # Function to update the outputted UI display
     def _update_ui(self):
@@ -243,4 +297,10 @@ if __name__ == "__main__":
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            # Processing if the user presses any button
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                game.play_step(
+                    mouse_pos
+                )  # Giving the play_step function where the user has pressed
     pygame.quit()
