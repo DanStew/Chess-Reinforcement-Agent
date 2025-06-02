@@ -1,238 +1,9 @@
 import pygame
 from chess_game_agent import ChessAgent
+from chess_pieces import Pawn, Knight, Bishop, Rook, Queen, King
 
 # Initialising the PyGame environment
 pygame.init()
-
-
-# Classes to create the Chess Pieces
-class ChessPiece:
-    def __init__(self, x, y, color):
-        self.location = (x, y)  # The location of the chess piece (1-8)
-        self.color = color  # Defining the color of the piece
-        self.actions = []
-        self.blockerLocations = {}  # Initialising this, but implemented elsewhere
-        # Defining the directions you would need to check for blockers
-        # If white pieces, the values would need to be multiplied by -1 before moving
-        self.blockerMovementLocations = {
-            "forward": (0, 1),
-            "backward": (0, -1),
-            "left": (-1, 0),
-            "right": (1, 0),
-            "forwardRight": (1, 1),
-            "forwardLeft": (-1, 1),
-            "backwardRight": (1, -1),
-            "backwardLeft": (-1, -1),
-        }
-
-    # Function to check for the blocker locations from the current piece
-    def checkBlockerLocations(self, gamePieces, moveNmb):
-        # If the moveNmb hasn't changed from the last time the blockers were calculated, return as blockers remain the same
-        if self.blockerLocations["moveNmb"] == moveNmb:
-            return
-        # Looping through all the directions we want to identify blockers for
-        for direction in list(self.blockerLocations.keys())[1:]:
-            # Finding out the direction we need to move in
-            movementDirection = self.blockerMovementLocations[direction]
-            # Multiplying the direction by -1 if piece color is white
-            if self.color == "white":
-                movementDirection = (
-                    movementDirection[0] * -1,
-                    movementDirection[1] * -1,
-                )
-            currentLocation = self.location
-            blockerFound = False
-            # While we are within the board
-            while (
-                1 <= currentLocation[0] <= 8
-                and 1 <= currentLocation[1] <= 8
-                and blockerFound == False
-            ):
-                # Move in the direction we are aiming to check for blockers
-                currentLocation = (
-                    currentLocation[0] + movementDirection[0],
-                    currentLocation[1] + movementDirection[1],
-                )
-                # If any gamePiece is at the current postion
-                if not all(pPiece.location != currentLocation for pPiece in gamePieces):
-                    # Set blockerFound to true and store the blocker location
-                    blockerFound = True
-                    self.blockerLocations[direction] = currentLocation
-            # If no blockers found, set block in that direction to None
-            if blockerFound == False:
-                self.blockerLocations[direction] = None
-
-    # Function to use the Blocker Locations to define whether a move is blocked or not
-    # Returns True or False, as to whether the move is blocked or not
-    def checkBlockedMove(self, move_location, direction):
-        # If there is no blocker, move can't be blocked
-        if self.blockerLocations[direction] == None:
-            return False
-
-        # Making move_location and the blocker into easier to use variables
-        x, y = move_location
-        bx, by = self.blockerLocations[direction]
-
-        # Checking if the blocker interferes with the move
-        # Implements the logic to return True or False as to whether piece is blocked or not
-        if "forward" in direction:
-            return (self.color == "white" and y < by) or (
-                self.color == "black" and y > by
-            )
-        elif "backward" in direction:
-            return (self.color == "white" and y > by) or (
-                self.color == "black" and y < by
-            )
-        elif direction == "right":
-            return x < bx
-        elif direction == "left":
-            return x > bx
-
-
-class Pawn(ChessPiece):
-    def __init__(self, x, y, color):
-        super().__init__(x, y, color)
-        # Setting the image of the piece, to be displayed to the screen
-        self.imageSrc = (
-            "./images/pawn.png" if self.color == "white" else "./images/pawnBlack.png"
-        )
-        self.image = pygame.image.load(self.imageSrc).convert_alpha()
-        # Defining the actions a pawn can make
-        # NOTE : En Passant isn't included within the initial actions
-        self.actions = [(0, 1)]
-        # Defining the locations of the blockers for the pawn
-        self.blockerLocations = {"moveNmb": None, "forward": None}
-
-
-class Rook(ChessPiece):
-    def __init__(self, x, y, color):
-        super().__init__(x, y, color)
-        self.moved = False  # Used to check for possible castle
-        # Setting the image of the piece, to be displayed to the screen
-        self.imageSrc = (
-            "./images/rook.png" if self.color == "white" else "./images/rookBlack.png"
-        )
-        self.image = pygame.image.load(self.imageSrc).convert_alpha()
-        # Defining the actions a rook can make
-        self.actions = (
-            [(i, 0) for i in range(1, 8)]  # Right
-            + [(0, i) for i in range(1, 8)]  # Up
-            + [(-i, 0) for i in range(1, 8)]  # Left
-            + [(0, -i) for i in range(1, 8)]  # Down
-        )
-        # Defining the locations of the blockers for the rook
-        self.blockerLocations = {
-            "moveNmb": None,
-            "forward": None,
-            "backward": None,
-            "left": None,
-            "right": None,
-        }
-
-
-class Knight(ChessPiece):
-    def __init__(self, x, y, color):
-        super().__init__(x, y, color)
-        # Setting the image of the piece, to be displayed to the screen
-        self.imageSrc = (
-            "./images/knight.png"
-            if self.color == "white"
-            else "./images/knightBlack.png"
-        )
-        self.image = pygame.image.load(self.imageSrc).convert_alpha()
-        # Defining the actions a rook can make
-        self.actions = [
-            (x, y) for x in [-2, -1, 1, 2] for y in [-2, -1, 1, 2] if abs(x) != abs(y)
-        ]
-
-
-class Bishop(ChessPiece):
-    def __init__(self, x, y, color):
-        super().__init__(x, y, color)
-        # Setting the image of the piece, to be displayed to the screen
-        self.imageSrc = (
-            "./images/bishop.png"
-            if self.color == "white"
-            else "./images/bishopBlack.png"
-        )
-        self.image = pygame.image.load(self.imageSrc).convert_alpha()
-        # Defining the actions a rook can make
-        self.actions = (
-            [(i, i) for i in range(1, 8)]  # Up and Right
-            + [(i, -i) for i in range(1, 8)]  # Down and Right
-            + [(-i, i) for i in range(1, 8)]  # Up and Left
-            + [(-i, -i) for i in range(1, 8)]  # Down and Left
-        )
-        # Defining the locations of the blockers for the rook
-        self.blockerLocations = {
-            "moveNmb": None,
-            "forwardRight": None,
-            "forwardLeft": None,
-            "backwardRight": None,
-            "backwardLeft": None,
-        }
-
-
-class Queen(ChessPiece):
-    def __init__(self, x, y, color):
-        super().__init__(x, y, color)
-        # Setting the image of the piece, to be displayed to the screen
-        self.imageSrc = (
-            "./images/queen.png" if self.color == "white" else "./images/queenBlack.png"
-        )
-        self.image = pygame.image.load(self.imageSrc).convert_alpha()
-        # Defining the actions a rook can make
-        # The Queen's possible actions are the bishops and rooks added together
-        self.actions = (
-            [(i, i) for i in range(1, 8)]
-            + [(i, -i) for i in range(1, 8)]
-            + [(-i, i) for i in range(1, 8)]
-            + [(-i, -i) for i in range(1, 8)]
-            + [(i, 0) for i in range(1, 8)]
-            + [(0, i) for i in range(1, 8)]
-            + [(-i, 0) for i in range(1, 8)]
-            + [(0, -i) for i in range(1, 8)]
-        )
-        # Defining the locations of the blockers for the rook
-        self.blockerLocations = {
-            "moveNmb": None,
-            "forward": None,
-            "backward": None,
-            "left": None,
-            "right": None,
-            "forwardRight": None,
-            "forwardLeft": None,
-            "backwardRight": None,
-            "backwardLeft": None,
-        }
-
-
-class King(ChessPiece):
-    def __init__(self, x, y, color):
-        super().__init__(x, y, color)
-        # Setting the image of the piece, to be displayed to the screen
-        self.imageSrc = (
-            "./images/king.png" if self.color == "white" else "./images/kingBlack.png"
-        )
-        self.image = pygame.image.load(self.imageSrc).convert_alpha()
-        self.moved = False  # Used to check for possible Castle
-        # Defining the actions a rook can make
-        self.actions = [
-            (x, y) for x in [-1, 0, 1] for y in [-1, 0, 1] if not (x == 0 and y == 0)
-        ]
-        # Defining the locations of the blockers for the rook
-        self.blockerLocations = {
-            "moveNmb": None,
-            "forward": None,
-            "backward": None,
-            "left": None,
-            "right": None,
-            "forwardRight": None,
-            "forwardLeft": None,
-            "backwardRight": None,
-            "backwardLeft": None,
-        }
-
 
 # Defining the different colours used throughout the game
 LIGHT = (240, 217, 181)
@@ -260,15 +31,21 @@ class ChessGame:
         # Initialising the players within the game
         self.player1 = player1
         self.player2 = player2
-        # Tracking the selectedPieces, possible moves and the highlighted sqaures
-        self.currentPiece = None
-        self.possibleMoves = []
-        self.highlightedSquares = []
         # Initialising the state of the game
         self.reset()
 
     # Function to reset the environment
     def reset(self):
+        # Tracking the selectedPieces, possible moves and the highlighted sqaures
+        self.currentPiece = None
+        self.possibleMoves = []
+        self.allPlayer1Moves = []
+        self.calculatedAllPlayer1Moves = False
+        self.allPlayer2Moves = []
+        self.calulcatedAllPlayer2Moves = False
+        self.highlightedSquares = []
+        # Initialising the piece id for the new game
+        self.chessPieceId = 1
         # Creating the pieces for each player
         self.generateChessPieces(player1, 1)
         self.generateChessPieces(player2, 2)
@@ -295,11 +72,15 @@ class ChessGame:
         piece_classes = [Rook, Knight, Bishop, Queen, King, Bishop, Knight, Rook]
         # Creating all of the Pieces, at the correct locations
         chessPieces = [
-            pieceClass(x + 1, baseRow, color)
+            pieceClass(x + 1, baseRow, color, self.chessPieceId + x)
             for x, pieceClass in enumerate(piece_classes)
         ]
+        self.chessPieceId += 7
         # Adding a Pawn Piece in every square of the Pawn Row
-        chessPieces.extend(Pawn(i, pawnRow, color) for i in range(1, 9))
+        chessPieces.extend(
+            Pawn(i, pawnRow, color, self.chessPieceId + i) for i in range(1, 9)
+        )
+        self.chessPieceId += 8
 
         player.chessPieces = chessPieces
 
@@ -339,6 +120,24 @@ class ChessGame:
         (x, y) = (click[0] // self.blockSize + 1, click[1] // self.blockSize + 1)
         # Getting the player's turn pieces
         playerPieces = self.playerTurn.chessPieces
+        # Getting the opponents pieces
+        opponentPieces = (
+            self.player2.chessPieces
+            if self.playerTurn == player1
+            else self.player1.chessPieces
+        )
+
+        # Calculating all the player's possible moves, if it hasn't been calculated already
+        if not self.calculatedAllPlayer1Moves:
+            if self.playerTurn == player1:
+                self.allPlayer1Moves = self.calculateAllPossibleMoves(
+                    "player1", playerPieces, True, opponentPieces
+                )
+            else:
+                self.allPlayer2Moves = self.calculateAllPossibleMoves(
+                    "player2", playerPieces, True, opponentPieces
+                )
+
         # Finding out if the player has pressed any of their own pieces
         for chessPiece in playerPieces:
             if chessPiece.location == (x, y):
@@ -358,22 +157,131 @@ class ChessGame:
         # This if statement is introduced to only call this when the currentPiece has changed
         if old_piece != self.currentPiece and self.currentPiece != None:
             self.possibleMoves = []  # Resetting possible moves
-            self.identifyPossibleMoves(self.currentPiece, playerPieces)
+            allPossibleMoves = (
+                self.allPlayer1Moves
+                if self.playerTurn == player1
+                else self.allPlayer2Moves
+            )
+            self.getPossibleMoves(self.currentPiece, allPossibleMoves)
 
         # Finding out if the player has pressed any valid move locations
         for location in self.possibleMoves:
             # If the location pressed is a valid move, move to the location
             if location == (x, y):
-                opponentPieces = (
-                    self.player2.chessPieces
-                    if self.playerTurn == player1
-                    else self.player1.chessPieces
-                )
                 self._move(location, opponentPieces)  # Performing the move
                 resetGrid = True
 
         # Code to update the UI once the action has been made
         self._update_ui(resetGrid)
+
+    # Function to find ALL the possible moves the player could make
+    def calculateAllPossibleMoves(
+        self, player, playerPieces, checkmateCheck, opponentPieces=None
+    ):
+        allPossibleMoves = []
+        kingLocation = ()  # Location of the king
+        king = None  # Will store the users king, when found
+
+        # Looping through every user piece and identifying their moves
+        for piece in playerPieces:
+            allPossibleMoves += self.identifyPossibleMoves(piece, playerPieces)
+            # This is used within checkmate check, if required
+            if type(piece) == King:
+                kingLocation = piece.location
+                king = piece
+
+        # If checkmateCheck, then we need to apply the checking for checkmate
+        if checkmateCheck:
+            opposingPlayer = "player1" if player != "player1" else "player2"
+            kingAttacks = self.identifyAttacksOnLocation(opposingPlayer, kingLocation)
+
+            # If there are any pieces that can attack the king
+            if len(kingAttacks) > 0:
+                # Iterating over a copy of allPossibleMoves, so we can remove actions without affecting the for loop
+                for action in allPossibleMoves[:]:
+                    # For every action that involves the king
+                    if action[0] == king:
+                        # If the king's move still leads to the king attacked, pop it from the list
+                        if (
+                            len(
+                                self.identifyAttacksOnLocation(
+                                    opposingPlayer, action[1]
+                                )
+                            )
+                            != 0
+                        ):
+                            allPossibleMoves.remove(action)
+                    # Only applying the blocker checks if there is only one piece attacking the king
+                    elif len(kingAttacks) == 1:
+                        if not self.blockedMove(
+                            opposingPlayer, kingLocation, kingAttacks[0], action[1]
+                        ):
+                            allPossibleMoves.remove(action)
+
+        if player == "player1":
+            self.calculatedAllPlayer1Moves = True
+        else:
+            self.calculatedAllPlayer2Moves = True
+
+        return allPossibleMoves
+
+    # Function to identify all the moves that attack a specified location (usually used for the king)
+    def identifyAttacksOnLocation(self, opposingPlayer, location):
+
+        # If we haven't calculated all the opposing players moves yet, calculate them
+        if opposingPlayer == "player1":
+            if self.calculatedAllPlayer1Moves == False:
+                self.allPlayer1Moves = self.calculateAllPossibleMoves(
+                    "player1", player1.chessPieces, False, player2.chessPieces
+                )
+        else:
+            if self.calulcatedAllPlayer2Moves == False:
+                self.allPlayer2Moves = self.calculateAllPossibleMoves(
+                    "player2", player2.chessPieces, False, player1.chessPieces
+                )
+
+        # Going through all the opposing players actions and seeing if any of them meet the kings locations
+        actionsToCheck = (
+            self.allPlayer1Moves
+            if opposingPlayer == "player1"
+            else self.allPlayer2Moves
+        )
+
+        attackingPieces = []  # Defining list of all pieces directly attacking the king
+        for action in actionsToCheck:
+            # If the actions location matches the king's location, it means that that piece can attack the king
+            if action[1] == location:
+                attackingPieces.append(action[0].location)
+
+        return attackingPieces  # Returning all pieces that can attack the king
+
+    def blockedMove(self, opposingPlayer, location, attackerLocation, blockerLocation):
+        ax, ay = attackerLocation
+        kx, ky = location
+        bx, by = blockerLocation
+
+        dx, dy = kx - ax, ky - ay
+
+        # Normalize direction to unit step
+        def sign(n):
+            return (n > 0) - (n < 0)
+
+        step_x = sign(dx)
+        step_y = sign(dy)
+
+        if blockerLocation == attackerLocation:
+            return True  # Same square
+
+        # Build path from attacker to target
+        cx, cy = ax + step_x, ay + step_y
+        while (cx, cy) != (kx, ky):
+            # If the blocker location is identified within the path, attack blocked
+            if (cx, cy) == (bx, by):
+                return True
+            cx += step_x
+            cy += step_y
+
+        return False
 
     # Function to change the color of a rectangle at a positon in the chess grid to a specific colour
     def changeGridSpaceColor(self, gridSpace, color):
@@ -402,6 +310,8 @@ class ChessGame:
 
     # Function to identify the possible moves a piece can make
     def identifyPossibleMoves(self, piece, playerPieces):
+
+        possibleMoves = []
         for action in piece.actions:
             if piece.color == "white":
                 # Multiplying the action by -1 as we are moving in the opposite direction, up the board
@@ -429,10 +339,17 @@ class ChessGame:
                         # If the move is blocked, move to the next action
                         if blocked:
                             continue
-                    # If no blockers, mark move as possible and highlight it
-                    self.possibleMoves.append(new_pos)
-                    self.highlightedSquares.append(new_pos)
-                    self.changeGridSpaceColor(new_pos, HIGHLIGHT)
+                    # If no blockers, add the move to possible moves
+                    possibleMoves.append([piece, new_pos])
+        return possibleMoves
+
+    # Function to get the current moves that a piece can make, given the piece and all the possible actions the player could make
+    def getPossibleMoves(self, piece, allPossibleMoves):
+        for move in allPossibleMoves:
+            if move[0] == piece:
+                self.possibleMoves.append(move[1])
+                self.highlightedSquares.append(move[1])
+                self.changeGridSpaceColor(move[1], HIGHLIGHT)
 
     # Function to calculate the direction you're going in, giving the action
     def getDirectionFromAction(self, action):
@@ -483,9 +400,12 @@ class ChessGame:
         # Resetting some of the environment attributes
         self.currentPiece = None
         self.possibleMoves = []
+        self.calculatedAllPlayer1Moves = False
+        self.calculatedAllPlayer2Moves = False
         self.highlightedSquares = []
         # Changing whose turn it is to play
         self.playerTurn = player1 if self.playerTurn != player1 else player2
+        self.moveNmb += 1
 
         # Checking whether the move has captured any pieces
         for chessPiece in opponentPieces:
