@@ -84,9 +84,9 @@ class ChessPiece:
                 self.color == "black" and y < by
             )
         elif direction == "right":
-            return x > bx
-        elif direction == "left":
             return x < bx
+        elif direction == "left":
+            return x > bx
 
 
 class Pawn(ChessPiece):
@@ -277,7 +277,7 @@ class ChessGame:
         # Keeping track of the moveNmb within the game
         self.moveNmb = 1
         # Displaying the initial chess board
-        self._update_ui()
+        self._update_ui(True)
 
     # Code to generate the chess pieces for each player, and assign them to the player
     def generateChessPieces(self, player, playerNmb):
@@ -331,6 +331,8 @@ class ChessGame:
 
     # Function to process an action on the board, and call the function to perform the move
     def play_step(self, click):
+        # Initialising resetGrid value to false, so grid isn't reset every time
+        resetGrid = False
         # Storing the old value of self.currentPiece, so we can check if it has changed or not
         old_piece = self.currentPiece
         # Converting the pixel number where the user has pressed into a position on the grid (1,1) --> (8,8)
@@ -362,10 +364,16 @@ class ChessGame:
         for location in self.possibleMoves:
             # If the location pressed is a valid move, move to the location
             if location == (x, y):
-                self._move(location)
+                opponentPieces = (
+                    self.player2.chessPieces
+                    if self.playerTurn == player1
+                    else self.player1.chessPieces
+                )
+                self._move(location, opponentPieces)  # Performing the move
+                resetGrid = True
 
         # Code to update the UI once the action has been made
-        self._update_ui()
+        self._update_ui(resetGrid)
 
     # Function to change the color of a rectangle at a positon in the chess grid to a specific colour
     def changeGridSpaceColor(self, gridSpace, color):
@@ -446,10 +454,11 @@ class ChessGame:
         return direction
 
     # Function to update the outputted UI display
-    def _update_ui(self):
+    def _update_ui(self, resetGrid):
         # Resetting the display of the board
-        self.display.fill((255, 255, 255))
-        self.displayInitialBoard()
+        if resetGrid:
+            self.display.fill((255, 255, 255))
+            self.displayInitialBoard()
 
         # Combining both players pieces into one array
         chessPieces = player1.chessPieces + player2.chessPieces
@@ -469,8 +478,21 @@ class ChessGame:
         pygame.display.update()
 
     # Function to perform a move on the board
-    def _move(self, action):
+    def _move(self, action, opponentPieces):
         self.currentPiece.location = action  # Moving the piece to the location
+        # Resetting some of the environment attributes
+        self.currentPiece = None
+        self.possibleMoves = []
+        self.highlightedSquares = []
+        # Changing whose turn it is to play
+        self.playerTurn = player1 if self.playerTurn != player1 else player2
+
+        # Checking whether the move has captured any pieces
+        for chessPiece in opponentPieces:
+            # If action == chessPiece.location, the piece should be captured
+            if action == chessPiece.location:
+                # Capturing the piece (taking it off the board)
+                self.playerTurn.chessPieces.remove(chessPiece)
 
 
 if __name__ == "__main__":
