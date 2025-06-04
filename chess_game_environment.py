@@ -36,13 +36,13 @@ class ChessGame:
 
     # Function to reset the environment
     def reset(self):
-        # Tracking the selectedPieces, possible moves and the highlighted sqaures
+        # Tracking the selectedPieces, possible moves and the highlighted
         self.currentPiece = None
         self.possibleMoves = []
         self.allPlayer1Moves = []
         self.calculatedAllPlayer1Moves = False
         self.allPlayer2Moves = []
-        self.calulcatedAllPlayer2Moves = False
+        self.calculatedAllPlayer2Moves = False
         self.highlightedSquares = []
         # Initialising the piece id for the new game
         self.chessPieceId = 1
@@ -117,7 +117,9 @@ class ChessGame:
         # Storing the old value of self.currentPiece, so we can check if it has changed or not
         old_piece = self.currentPiece
         # Converting the pixel number where the user has pressed into a position on the grid (1,1) --> (8,8)
-        (x, y) = (click[0] // self.blockSize + 1, click[1] // self.blockSize + 1)
+        # Click == False is to recalculate the possible moves, once a move has been made
+        if click != False:
+            (x, y) = (click[0] // self.blockSize + 1, click[1] // self.blockSize + 1)
         # Getting the player's turn pieces
         playerPieces = self.playerTurn.chessPieces
         # Getting the opponents pieces
@@ -137,6 +139,10 @@ class ChessGame:
                 self.allPlayer2Moves = self.calculateAllPossibleMoves(
                     "player2", playerPieces, True, opponentPieces
                 )
+
+        # If we are just recalculating moves, no need to go further so returning
+        if click == False:
+            return
 
         # Finding out if the player has pressed any of their own pieces
         for chessPiece in playerPieces:
@@ -174,6 +180,11 @@ class ChessGame:
         # Code to update the UI once the action has been made
         self._update_ui(resetGrid)
 
+        # If we have made a move, recalculate all possible moves by recalling play_step
+        # This is done so we can immediately check for checkmate once a draw has been made
+        if resetGrid:
+            self.play_step(False)
+
     # Function to find ALL the possible moves the player could make
     def calculateAllPossibleMoves(
         self, player, playerPieces, checkmateCheck, opponentPieces=None
@@ -199,6 +210,8 @@ class ChessGame:
             if len(kingAttacks) > 0:
                 # Iterating over a copy of allPossibleMoves, so we can remove actions without affecting the for loop
                 for action in allPossibleMoves[:]:
+                    if len(allPossibleMoves) == 0:
+                        break
                     # For every action that involves the king
                     if action[0] == king:
                         # If the king's move still leads to the king attacked, pop it from the list
@@ -211,6 +224,9 @@ class ChessGame:
                             != 0
                         ):
                             allPossibleMoves.remove(action)
+                        # Checking whether any of the opponents pieces has the action as a blocker
+                        elif self.checkOpponentBlockers(opponentPieces, action[1]):
+                            allPossibleMoves.remove(action)
                     # Only applying the blocker checks if there is only one piece attacking the king
                     elif len(kingAttacks) == 1:
                         if not self.blockedMove(
@@ -218,12 +234,32 @@ class ChessGame:
                         ):
                             allPossibleMoves.remove(action)
 
+        # If there are no possible moves, checkmate
+        if len(allPossibleMoves) == 0:
+            print("Checkmate")
+            self.reset()
+
         if player == "player1":
             self.calculatedAllPlayer1Moves = True
         else:
             self.calculatedAllPlayer2Moves = True
 
         return allPossibleMoves
+
+    # Function which checks whether an opponents piece has a location as a blocker, as whether it would be able to attack that location or not
+    def checkOpponentBlockers(self, opponentPieces, location):
+        # Going through all the opponents pieces
+        for piece in opponentPieces:
+            # Checking if a blocker exists at the location we are checking for
+            blockerExists = piece.checkForBlocker(location)
+            if blockerExists:
+                # Checking whether any of the piece's moves could reach the location, if the blocker didn't exist
+                for move in piece.actions:
+                    new_pos = (piece.location[0] + move[0], piece.location[1] + move[1])
+                    if new_pos == location:
+                        # If it could, return True
+                        return True
+        return False
 
     # Function to identify all the moves that attack a specified location (usually used for the king)
     def identifyAttacksOnLocation(self, opposingPlayer, location):
@@ -235,7 +271,7 @@ class ChessGame:
                     "player1", player1.chessPieces, False, player2.chessPieces
                 )
         else:
-            if self.calulcatedAllPlayer2Moves == False:
+            if self.calculatedAllPlayer2Moves == False:
                 self.allPlayer2Moves = self.calculateAllPossibleMoves(
                     "player2", player2.chessPieces, False, player1.chessPieces
                 )
@@ -310,7 +346,6 @@ class ChessGame:
 
     # Function to identify the possible moves a piece can make
     def identifyPossibleMoves(self, piece, playerPieces):
-
         possibleMoves = []
         for action in piece.actions:
             if piece.color == "white":

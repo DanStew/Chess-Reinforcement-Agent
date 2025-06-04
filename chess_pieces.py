@@ -27,6 +27,9 @@ class ChessPiece:
         # If the moveNmb hasn't changed from the last time the blockers were calculated, return as blockers remain the same
         if self.blockerLocations["moveNmb"] == moveNmb:
             return
+        else:
+            self.blockerLocations["moveNmb"] = moveNmb
+
         # Looping through all the directions we want to identify blockers for
         for direction in list(self.blockerLocations.keys())[1:]:
             # Finding out the direction we need to move in
@@ -62,28 +65,45 @@ class ChessPiece:
     # Function to use the Blocker Locations to define whether a move is blocked or not
     # Returns True or False, as to whether the move is blocked or not
     def checkBlockedMove(self, move_location, direction):
+
         # If there is no blocker, move can't be blocked
         if self.blockerLocations[direction] == None:
             return False
 
-        # Making move_location and the blocker into easier to use variables
-        x, y = move_location
+        # Shouldn't happen but if move location == self.location, quit
+        if move_location == self.location:
+            return True
+
+        ax, ay = self.location
+        kx, ky = move_location
         bx, by = self.blockerLocations[direction]
 
-        # Checking if the blocker interferes with the move
-        # Implements the logic to return True or False as to whether piece is blocked or not
-        if "forward" in direction:
-            return (self.color == "white" and y < by) or (
-                self.color == "black" and y > by
-            )
-        elif "backward" in direction:
-            return (self.color == "white" and y > by) or (
-                self.color == "black" and y < by
-            )
-        elif direction == "right":
-            return x < bx
-        elif direction == "left":
-            return x > bx
+        dx, dy = kx - ax, ky - ay
+
+        # Normalize direction to unit step
+        def sign(n):
+            return (n > 0) - (n < 0)
+
+        step_x = sign(dx)
+        step_y = sign(dy)
+
+        # Build path from attacker to target
+        cx, cy = ax + step_x, ay + step_y
+        while (cx, cy) != (kx, ky):
+            # If the blocker location is identified within the path, attack blocked
+            if (cx, cy) == (bx, by):
+                return True
+            cx += step_x
+            cy += step_y
+
+        return False
+
+    # Function to remove a blocker location, to simulate that location being attacked
+    def checkForBlocker(self, attackLocation):
+        # Looping through all the directions we want to identify blockers for
+        for direction in list(self.blockerLocations.keys())[1:]:
+            if self.blockerLocations[direction] == attackLocation:
+                return True
 
 
 class Pawn(ChessPiece):
