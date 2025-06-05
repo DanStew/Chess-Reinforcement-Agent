@@ -1,6 +1,7 @@
 import pygame
 from chess_game_agent import ChessAgent
 from chess_pieces import Pawn, Knight, Bishop, Rook, Queen, King
+from chess_game_popup import show_popup
 
 # Initialising the PyGame environment
 pygame.init()
@@ -195,7 +196,9 @@ class ChessGame:
 
         # Looping through every user piece and identifying their moves
         for piece in playerPieces:
-            allPossibleMoves += self.identifyPossibleMoves(piece, playerPieces)
+            allPossibleMoves += self.identifyPossibleMoves(
+                piece, playerPieces, opponentPieces
+            )
             # This is used within checkmate check, if required
             if type(piece) == King:
                 kingLocation = piece.location
@@ -345,9 +348,10 @@ class ChessGame:
         self.highlightedSquares = []
 
     # Function to identify the possible moves a piece can make
-    def identifyPossibleMoves(self, piece, playerPieces):
+    def identifyPossibleMoves(self, piece, playerPieces, opponentPieces):
         possibleMoves = []
-        for action in piece.actions:
+        allPieceActions = piece.actions + piece.getSpecialMoves(opponentPieces)
+        for action in allPieceActions:
             if piece.color == "white":
                 # Multiplying the action by -1 as we are moving in the opposite direction, up the board
                 action = (action[0] * -1, action[1] * -1)
@@ -431,7 +435,29 @@ class ChessGame:
 
     # Function to perform a move on the board
     def _move(self, action, opponentPieces):
-        self.currentPiece.location = action  # Moving the piece to the location
+        self.currentPiece.location = action  # Moving the piece to the location'
+
+        # If the current piece tracks self.moved and hasn't been moved yet, update it
+        if (
+            isinstance(self.currentPiece, (Pawn, Rook, King))
+            and not self.currentPiece.moved
+        ):
+            self.currentPiece.moved = True
+
+        # If the pawn reaches the final rank, allow the piece for promotion
+        if isinstance(self.currentPiece, Pawn):
+            final_rank = (
+                1 if self.currentPiece.color == "white" else 8
+            )  # Finding that pieces final rank
+            if self.currentPiece.location[1] == final_rank:
+                # Making sure they select a valid option, by continuously showing the popup
+                choice = None
+                while choice == None:
+                    choice = (
+                        show_popup()
+                    )  # Showing the popup asking the user for response
+                self.promote_pawn(choice)  # Promoting the pawn
+
         # Resetting some of the environment attributes
         self.currentPiece = None
         self.possibleMoves = []
@@ -448,6 +474,26 @@ class ChessGame:
             if action == chessPiece.location:
                 # Capturing the piece (taking it off the board)
                 self.playerTurn.chessPieces.remove(chessPiece)
+
+    # Allowing the user for Pawn Promotion, given the option they select
+    def promote_pawn(self, piece_name):
+        x, y = self.currentPiece.location
+        color = self.currentPiece.color
+
+        piece_classes = {
+            "Queen": Queen,
+            "Knight": Knight,
+            "Rook": Rook,
+            "Bishop": Bishop,
+        }
+
+        # Creating the new piece
+        new_piece = piece_classes[piece_name](x, y, color, self.chessPieceId)
+        self.chessPieceId += 1
+
+        # Replace the pawn with the new piece
+        self.playerTurn.chessPieces.remove(self.currentPiece)
+        self.playerTurn.chessPieces.append(new_piece)
 
 
 if __name__ == "__main__":

@@ -74,6 +74,13 @@ class ChessPiece:
         if move_location == self.location:
             return True
 
+        if (
+            move_location == self.blockerLocations[direction]
+            and type(self) == Pawn
+            and direction == "forward"
+        ):
+            return True
+
         ax, ay = self.location
         kx, ky = move_location
         bx, by = self.blockerLocations[direction]
@@ -105,6 +112,11 @@ class ChessPiece:
             if self.blockerLocations[direction] == attackLocation:
                 return True
 
+    # Function to get any additional special moves a piece could make
+    # This function is overridden for classes which have special moves that they can make
+    def getSpecialMoves(self, opponentPieces):
+        return []
+
 
 class Pawn(ChessPiece):
     def __init__(self, x, y, color, id):
@@ -118,7 +130,40 @@ class Pawn(ChessPiece):
         # NOTE : En Passant isn't included within the initial actions
         self.actions = [(0, 1)]
         # Defining the locations of the blockers for the pawn
-        self.blockerLocations = {"moveNmb": None, "forward": None}
+        self.blockerLocations = {
+            "moveNmb": None,
+            "forward": None,
+            "forwardRight": None,
+            "forwardLeft": None,
+        }
+        # Defining whether the piece has been moved or not
+        self.moved = False
+
+    # Function to add any special moves for the Pawn
+    def getSpecialMoves(self, opponentPieces):
+        specialMoves = []
+
+        # Pawn First Move
+        if not self.moved:
+            specialMoves.append((0, 2))
+
+        # Pawn Captures
+        x, y = self.location
+        forwardRight = (x + 1, y + 1) if self.color == "black" else (x + 1, y - 1)
+        forwardLeft = (x - 1, y + 1) if self.color == "black" else (x - 1, y - 1)
+        for piece in opponentPieces:
+            if forwardRight == piece.location:
+                if self.color == "white":
+                    specialMoves.append((-1, 1))
+                else:
+                    specialMoves.append((1, 1))
+            if forwardLeft == piece.location:
+                if self.color == "white":
+                    specialMoves.append((1, 1))
+                else:
+                    specialMoves.append((-1, 1))
+
+        return specialMoves
 
 
 class Rook(ChessPiece):
@@ -145,6 +190,8 @@ class Rook(ChessPiece):
             "left": None,
             "right": None,
         }
+        # Defining whether the piece has been moved or not
+        self.moved = False
 
 
 class Knight(ChessPiece):
@@ -249,3 +296,5 @@ class King(ChessPiece):
             "backwardRight": None,
             "backwardLeft": None,
         }
+        # Defining whether the piece has been moved or not
+        self.moved = False
