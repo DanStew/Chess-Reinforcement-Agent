@@ -171,6 +171,11 @@ class ChessGame:
             )
             self.getPossibleMoves(self.currentPiece, allPossibleMoves)
 
+        # If there is no current piece, update the UI and return
+        if self.currentPiece == None:
+            self._update_ui(resetGrid)
+            return
+
         # Finding out if the player has pressed any valid move locations
         for location in self.possibleMoves:
             # If the location pressed is a valid move, move to the location
@@ -350,7 +355,7 @@ class ChessGame:
     # Function to identify the possible moves a piece can make
     def identifyPossibleMoves(self, piece, playerPieces, opponentPieces):
         possibleMoves = []
-        allPieceActions = piece.actions + piece.getSpecialMoves(opponentPieces)
+        allPieceActions = piece.actions + piece.getSpecialMoves(playerPieces,opponentPieces)
         for action in allPieceActions:
             if piece.color == "white":
                 # Multiplying the action by -1 as we are moving in the opposite direction, up the board
@@ -372,7 +377,7 @@ class ChessGame:
                         # Reverting back the action, so we can determine the correct way the piece is moving
                         if piece.color == "white":
                             tempAction = (tempAction[0] * -1, tempAction[1] * -1)
-                        direction = self.getDirectionFromAction(tempAction)
+                        direction = piece.getDirectionFromAction(tempAction)
                         # Determining whether the move is blocked or not
                         blocked = piece.checkBlockedMove(new_pos, direction)
                         # If the move is blocked, move to the next action
@@ -389,25 +394,6 @@ class ChessGame:
                 self.possibleMoves.append(move[1])
                 self.highlightedSquares.append(move[1])
                 self.changeGridSpaceColor(move[1], HIGHLIGHT)
-
-    # Function to calculate the direction you're going in, giving the action
-    def getDirectionFromAction(self, action):
-        direction = ""
-        if action[1] > 0:
-            direction = "forward"
-        elif action[1] < 0:
-            direction = "backward"
-        if action[0] > 0:
-            if direction == "":
-                direction = "right"
-            else:
-                direction += "Right"
-        elif action[0] < 0:
-            if direction == "":
-                direction = "left"
-            else:
-                direction += "Left"
-        return direction
 
     # Function to update the outputted UI display
     def _update_ui(self, resetGrid):
@@ -435,6 +421,7 @@ class ChessGame:
 
     # Function to perform a move on the board
     def _move(self, action, opponentPieces):
+        movement = (action[0] - self.currentPiece.location[0], action[1] - self.currentPiece.location[1])
         self.currentPiece.location = action  # Moving the piece to the location'
 
         # If the current piece tracks self.moved and hasn't been moved yet, update it
@@ -457,6 +444,17 @@ class ChessGame:
                         show_popup()
                     )  # Showing the popup asking the user for response
                 self.promote_pawn(choice)  # Promoting the pawn
+        
+        # If the king makes a castling move, move the rook aswell to the correct place
+        if isinstance(self.currentPiece, King):
+            if movement == (-2,0) :
+                # Queenside castling
+                rook = [piece for piece in self.playerTurn.chessPieces if isinstance(piece, Rook) and piece.location[0] == self.currentPiece.location[0] - 2][0]
+                rook.location = (self.currentPiece.location[0] + 1, self.currentPiece.location[1])
+            elif movement == (2,0) : 
+                # Kingside castling
+                rook = [piece for piece in self.playerTurn.chessPieces if isinstance(piece, Rook) and piece.location[0] == self.currentPiece.location[0] + 1][0]
+                rook.location = (self.currentPiece.location[0] - 1, self.currentPiece.location[1])
 
         # Resetting some of the environment attributes
         self.currentPiece = None
