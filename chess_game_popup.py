@@ -73,6 +73,3 @@ def show_popup():
                         running = False
                         break
     return selected_option
-
-
-show_popup()

@@ -1,6 +1,8 @@
 import pygame
+from chess_game_agent import ChessAgent
 from chess_pieces import Pawn, Knight, Bishop, Rook, Queen, King
 from chess_game_popup import show_popup
+from chess_game_agent import ChessAgent
 
 # Initialising the PyGame environment
 pygame.init()
@@ -13,7 +15,7 @@ CURRENTHIGHIGHLIGHT = (205, 76, 78)
 
 
 # Defining the Chess Game Environment
-class ChessGameAI:
+class ChessGame:
     # Initialising variables within the environment
     def __init__(
         self,
@@ -47,10 +49,10 @@ class ChessGameAI:
         # Initialising the piece id for the new game
         self.chessPieceId = 1
         # Creating the pieces for each player
-        self.generateChessPieces(self.player1, 1)
-        self.generateChessPieces(self.player2, 2)
+        self.generateChessPieces(player1, 1)
+        self.generateChessPieces(player2, 2)
         # Initialising whose turn it is to play
-        self.playerTurn = self.player1
+        self.playerTurn = player1
         # Keeping track of the moveNmb within the game
         self.moveNmb = 1
         # Displaying the initial chess board
@@ -111,41 +113,84 @@ class ChessGameAI:
         pygame.display.update()  # Updating the screen to display the squares
 
     # Function to process an action on the board, and call the function to perform the move
-    def play_step(self, action):
-        # Storing who the currently player was
-        currentPlayer = self.playerTurn
-        # Getting the player's pieces
-        playerPieces = currentPlayer.chessPieces
+    def play_step(self, click):
+        # Initialising resetGrid value to false, so grid isn't reset every time
+        resetGrid = False
+        # Storing the old value of self.currentPiece, so we can check if it has changed or not
+        old_piece = self.currentPiece
+        # Converting the pixel number where the user has pressed into a position on the grid (1,1) --> (8,8)
+        # Click == False is to recalculate the possible moves, once a move has been made
+        if click != False:
+            (x, y) = (click[0] // self.blockSize + 1, click[1] // self.blockSize + 1)
+        # Getting the player's turn pieces
+        playerPieces = self.playerTurn.chessPieces
         # Getting the opponents pieces
         opponentPieces = (
             self.player2.chessPieces
-            if self.playerTurn == self.player1
+            if self.playerTurn == player1
             else self.player1.chessPieces
         )
 
-        # Setting the chosen piece to be the current piece
-        self.currentPiece = action[0]
-        reward = self._move(action[1], opponentPieces)  # Performing the move
+        # Calculating all the player's possible moves, if it hasn't been calculated already
+        if not self.calculatedAllPlayer1Moves:
+            if self.playerTurn == player1:
+                self.allPlayer1Moves = self.calculateAllPossibleMoves(
+                    "player1", playerPieces, True, opponentPieces
+                )
+            else:
+                self.allPlayer2Moves = self.calculateAllPossibleMoves(
+                    "player2", playerPieces, True, opponentPieces
+                )
 
-        player_score = self.calculateScore(
-            currentPlayer
-        )  # Calculating the player's score
-        opposition_score = self.calculateScore(
-            self.playerTurn
-        )  # Calculating the oppositions score
-        score = self.plus_prefix(player_score - opposition_score)
+        # If we are just recalculating moves, no need to go further so returning
+        if click == False:
+            return
 
-        # Calculating all the moves the opponent can now make
-        opposition_moves = self.playerTurn.calculateAllPossibleMoves(
-            opponentPieces, True, playerPieces
-        )
-        checkmate = True if opposition_moves == [] else False
+        # Finding out if the player has pressed any of their own pieces
+        for chessPiece in playerPieces:
+            if chessPiece.location == (x, y):
+                if self.currentPiece != chessPiece:
+                    self.resetBoardDisplay()
+                    # Marking the current piece as highlighted
+                    self.currentPiece = chessPiece
+                    self.changeGridSpaceColor(chessPiece.location, CURRENTHIGHIGHLIGHT)
+                    self.highlightedSquares.append(chessPiece.location)
+                else:
+                    # Deselecting the current piece, and reverting its color
+                    self.currentPiece = None
+                    self.resetBoardDisplay()
+                break
+
+        # If there is a currently selected piece, identify the moves that piece can make
+        # This if statement is introduced to only call this when the currentPiece has changed
+        if old_piece != self.currentPiece and self.currentPiece != None:
+            self.possibleMoves = []  # Resetting possible moves
+            allPossibleMoves = (
+                self.allPlayer1Moves
+                if self.playerTurn == player1
+                else self.allPlayer2Moves
+            )
+            self.getPossibleMoves(self.currentPiece, allPossibleMoves)
+
+        # If there is no current piece, update the UI and return
+        if self.currentPiece == None:
+            self._update_ui(resetGrid)
+            return
+
+        # Finding out if the player has pressed any valid move locations
+        for location in self.possibleMoves:
+            # If the location pressed is a valid move, move to the location
+            if location == (x, y):
+                self._move(location, opponentPieces)  # Performing the move
+                resetGrid = True
 
         # Code to update the UI once the action has been made
-        self._update_ui(True)
+        self._update_ui(resetGrid)
 
-        # Returning the reward from the move, the player's current score and whether checkmate or not
-        return reward, checkmate, score
+        # If we have made a move, recalculate all possible moves by recalling play_step
+        # This is done so we can immediately check for checkmate once a draw has been made
+        if resetGrid:
+            self.play_step(False)
 
     # Function to find ALL the possible moves the player could make
     def calculateAllPossibleMoves(
@@ -232,12 +277,12 @@ class ChessGameAI:
         if opposingPlayer == "player1":
             if self.calculatedAllPlayer1Moves == False:
                 self.allPlayer1Moves = self.calculateAllPossibleMoves(
-                    "player1", self.player1.chessPieces, False, self.player2.chessPieces
+                    "player1", player1.chessPieces, False, player2.chessPieces
                 )
         else:
             if self.calculatedAllPlayer2Moves == False:
                 self.allPlayer2Moves = self.calculateAllPossibleMoves(
-                    "player2", self.player2.chessPieces, False, self.player1.chessPieces
+                    "player2", player2.chessPieces, False, player1.chessPieces
                 )
 
         # Going through all the opposing players actions and seeing if any of them meet the kings locations
@@ -283,6 +328,31 @@ class ChessGameAI:
 
         return False
 
+    # Function to change the color of a rectangle at a positon in the chess grid to a specific colour
+    def changeGridSpaceColor(self, gridSpace, color):
+        rect = pygame.Rect(
+            (gridSpace[0] - 1) * self.blockSize,
+            (gridSpace[1] - 1) * self.blockSize,
+            self.blockSize,
+            self.blockSize,
+        )
+
+        # Draw filled rectangle
+        pygame.draw.rect(self.display, color, rect)
+
+        # Draw black border
+        pygame.draw.rect(self.display, (0, 0, 0), rect, width=1)
+
+    # Function to revert all highlighted squares back to default
+    def resetBoardDisplay(self):
+        # Looping through all the highlighted squares
+        for location in self.highlightedSquares:
+            # Resetting back to their original color
+            newColor = LIGHT if (location[0] + location[1]) % 2 == 0 else DARK
+            self.changeGridSpaceColor(location, newColor)
+            # Removing the square from highlighted squares
+        self.highlightedSquares = []
+
     # Function to identify the possible moves a piece can make
     def identifyPossibleMoves(self, piece, playerPieces, opponentPieces):
         possibleMoves = []
@@ -303,8 +373,7 @@ class ChessGameAI:
                     if type(piece) != Knight:
                         # Calculating the blocker locations for the current piece
                         piece.checkBlockerLocations(
-                            self.player1.chessPieces + self.player2.chessPieces,
-                            self.moveNmb,
+                            player1.chessPieces + player2.chessPieces, self.moveNmb
                         )
                         # Calculating the direction of the current action
                         tempAction = action
@@ -337,7 +406,7 @@ class ChessGameAI:
             self.displayInitialBoard()
 
         # Combining both players pieces into one array
-        chessPieces = self.player1.chessPieces + self.player2.chessPieces
+        chessPieces = player1.chessPieces + player2.chessPieces
         # Looping through every chess piece and outputting them at their specified location
         for chessPiece in chessPieces:
             scaled_image = pygame.transform.scale(
@@ -368,9 +437,6 @@ class ChessGameAI:
 
     # Function to perform a move on the board
     def _move(self, action, opponentPieces):
-        # Initialising reward to be returned later
-        reward = 0
-        # Defining how much movement happened
         movement = (
             action[0] - self.currentPiece.location[0],
             action[1] - self.currentPiece.location[1],
@@ -432,8 +498,8 @@ class ChessGameAI:
                 # Capturing the piece (taking it off the board)
                 opponentPieces.remove(chessPiece)
                 # Outputting the scroe as a result of the capture
-                player1Score = self.calculateScore(self.player1)
-                player2Score = self.calculateScore(self.player2)
+                player1Score = self.calculateScore(player1)
+                player2Score = self.calculateScore(player2)
                 player1Diff = self.plus_prefix(player1Score - player2Score)
                 player2Diff = self.plus_prefix(player2Score - player1Score)
                 # Printing out the differences
@@ -443,7 +509,6 @@ class ChessGameAI:
                     + ", Player 2 : "
                     + str(player2Diff)
                 )
-                reward = chessPiece.value
 
         # Resetting some of the environment attributes
         self.currentPiece = None
@@ -452,12 +517,8 @@ class ChessGameAI:
         self.calculatedAllPlayer2Moves = False
         self.highlightedSquares = []
         # Changing whose turn it is to play
-        self.playerTurn = (
-            self.player1 if self.playerTurn != self.player1 else self.player2
-        )
+        self.playerTurn = player1 if self.playerTurn != player1 else player2
         self.moveNmb += 1
-
-        return reward
 
     # Allowing the user for Pawn Promotion, given the option they select
     def promote_pawn(self, piece_name):
@@ -478,3 +539,25 @@ class ChessGameAI:
         # Replace the pawn with the new piece
         self.playerTurn.chessPieces.remove(self.currentPiece)
         self.playerTurn.chessPieces.append(new_piece)
+
+
+if __name__ == "__main__":
+    # Initialising the Players and the Game
+    player1 = ChessAgent()
+    player2 = ChessAgent()
+    game = ChessGame(player1, player2)
+
+    # Running the Game until Closed
+    running = True
+    while running:
+        # Closing the Game if Closed
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            # Processing if the user presses any button
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                game.play_step(
+                    mouse_pos
+                )  # Giving the play_step function where the user has pressed
+    pygame.quit()
