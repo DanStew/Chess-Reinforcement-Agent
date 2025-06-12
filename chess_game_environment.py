@@ -355,7 +355,9 @@ class ChessGame:
     # Function to identify the possible moves a piece can make
     def identifyPossibleMoves(self, piece, playerPieces, opponentPieces):
         possibleMoves = []
-        allPieceActions = piece.actions + piece.getSpecialMoves(playerPieces,opponentPieces)
+        allPieceActions = piece.actions + piece.getSpecialMoves(
+            playerPieces, opponentPieces
+        )
         for action in allPieceActions:
             if piece.color == "white":
                 # Multiplying the action by -1 as we are moving in the opposite direction, up the board
@@ -419,9 +421,25 @@ class ChessGame:
         # Updating the display to show the pieces
         pygame.display.update()
 
+    # Function to calculate a players score
+    def calculateScore(self, player):
+        score = 0
+        for piece in player.chessPieces:
+            score += piece.value
+        return score
+
+    # Function to correctly format the outputted scores
+    def plus_prefix(self, val):
+        if val > 0:
+            return "+" + str(val)
+        return val
+
     # Function to perform a move on the board
     def _move(self, action, opponentPieces):
-        movement = (action[0] - self.currentPiece.location[0], action[1] - self.currentPiece.location[1])
+        movement = (
+            action[0] - self.currentPiece.location[0],
+            action[1] - self.currentPiece.location[1],
+        )
         self.currentPiece.location = action  # Moving the piece to the location'
 
         # If the current piece tracks self.moved and hasn't been moved yet, update it
@@ -444,17 +462,52 @@ class ChessGame:
                         show_popup()
                     )  # Showing the popup asking the user for response
                 self.promote_pawn(choice)  # Promoting the pawn
-        
+
         # If the king makes a castling move, move the rook aswell to the correct place
         if isinstance(self.currentPiece, King):
-            if movement == (-2,0) :
+            if movement == (-2, 0):
                 # Queenside castling
-                rook = [piece for piece in self.playerTurn.chessPieces if isinstance(piece, Rook) and piece.location[0] == self.currentPiece.location[0] - 2][0]
-                rook.location = (self.currentPiece.location[0] + 1, self.currentPiece.location[1])
-            elif movement == (2,0) : 
+                rook = [
+                    piece
+                    for piece in self.playerTurn.chessPieces
+                    if isinstance(piece, Rook)
+                    and piece.location[0] == self.currentPiece.location[0] - 2
+                ][0]
+                rook.location = (
+                    self.currentPiece.location[0] + 1,
+                    self.currentPiece.location[1],
+                )
+            elif movement == (2, 0):
                 # Kingside castling
-                rook = [piece for piece in self.playerTurn.chessPieces if isinstance(piece, Rook) and piece.location[0] == self.currentPiece.location[0] + 1][0]
-                rook.location = (self.currentPiece.location[0] - 1, self.currentPiece.location[1])
+                rook = [
+                    piece
+                    for piece in self.playerTurn.chessPieces
+                    if isinstance(piece, Rook)
+                    and piece.location[0] == self.currentPiece.location[0] + 1
+                ][0]
+                rook.location = (
+                    self.currentPiece.location[0] - 1,
+                    self.currentPiece.location[1],
+                )
+
+        # Checking whether the move has captured any pieces
+        for chessPiece in opponentPieces:
+            # If action == chessPiece.location, the piece should be captured
+            if action == chessPiece.location:
+                # Capturing the piece (taking it off the board)
+                opponentPieces.remove(chessPiece)
+                # Outputting the scroe as a result of the capture
+                player1Score = self.calculateScore(player1)
+                player2Score = self.calculateScore(player2)
+                player1Diff = self.plus_prefix(player1Score - player2Score)
+                player2Diff = self.plus_prefix(player2Score - player1Score)
+                # Printing out the differences
+                print(
+                    "Player 1 : "
+                    + str(player1Diff)
+                    + ", Player 2 : "
+                    + str(player2Diff)
+                )
 
         # Resetting some of the environment attributes
         self.currentPiece = None
@@ -465,13 +518,6 @@ class ChessGame:
         # Changing whose turn it is to play
         self.playerTurn = player1 if self.playerTurn != player1 else player2
         self.moveNmb += 1
-
-        # Checking whether the move has captured any pieces
-        for chessPiece in opponentPieces:
-            # If action == chessPiece.location, the piece should be captured
-            if action == chessPiece.location:
-                # Capturing the piece (taking it off the board)
-                self.playerTurn.chessPieces.remove(chessPiece)
 
     # Allowing the user for Pawn Promotion, given the option they select
     def promote_pawn(self, piece_name):
