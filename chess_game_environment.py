@@ -147,188 +147,6 @@ class ChessGameAI:
         # Returning the reward from the move, the player's current score and whether checkmate or not
         return reward, checkmate, score
 
-    # Function to find ALL the possible moves the player could make
-    def calculateAllPossibleMoves(
-        self, player, playerPieces, checkmateCheck, opponentPieces=None
-    ):
-        allPossibleMoves = []
-        kingLocation = ()  # Location of the king
-        king = None  # Will store the users king, when found
-
-        # Looping through every user piece and identifying their moves
-        for piece in playerPieces:
-            allPossibleMoves += self.identifyPossibleMoves(
-                piece, playerPieces, opponentPieces
-            )
-            # This is used within checkmate check, if required
-            if type(piece) == King:
-                kingLocation = piece.location
-                king = piece
-
-        # If checkmateCheck, then we need to apply the checking for checkmate
-        if checkmateCheck:
-            opposingPlayer = "player1" if player != "player1" else "player2"
-            kingAttacks = self.identifyAttacksOnLocation(opposingPlayer, kingLocation)
-
-            # If there are any pieces that can attack the king
-            if len(kingAttacks) > 0:
-                # Iterating over a copy of allPossibleMoves, so we can remove actions without affecting the for loop
-                for action in allPossibleMoves[:]:
-                    if len(allPossibleMoves) == 0:
-                        break
-                    # For every action that involves the king
-                    if action[0] == king:
-                        # If the king's move still leads to the king attacked, pop it from the list
-                        if (
-                            len(
-                                self.identifyAttacksOnLocation(
-                                    opposingPlayer, action[1]
-                                )
-                            )
-                            != 0
-                        ):
-                            allPossibleMoves.remove(action)
-                        # Checking whether any of the opponents pieces has the action as a blocker
-                        elif self.checkOpponentBlockers(opponentPieces, action[1]):
-                            allPossibleMoves.remove(action)
-                    # Only applying the blocker checks if there is only one piece attacking the king
-                    elif len(kingAttacks) == 1:
-                        if not self.blockedMove(
-                            opposingPlayer, kingLocation, kingAttacks[0], action[1]
-                        ):
-                            allPossibleMoves.remove(action)
-
-        # If there are no possible moves, checkmate
-        if len(allPossibleMoves) == 0:
-            print("Checkmate")
-            self.reset()
-
-        if player == "player1":
-            self.calculatedAllPlayer1Moves = True
-        else:
-            self.calculatedAllPlayer2Moves = True
-
-        return allPossibleMoves
-
-    # Function which checks whether an opponents piece has a location as a blocker, as whether it would be able to attack that location or not
-    def checkOpponentBlockers(self, opponentPieces, location):
-        # Going through all the opponents pieces
-        for piece in opponentPieces:
-            # Checking if a blocker exists at the location we are checking for
-            blockerExists = piece.checkForBlocker(location)
-            if blockerExists:
-                # Checking whether any of the piece's moves could reach the location, if the blocker didn't exist
-                for move in piece.actions:
-                    new_pos = (piece.location[0] + move[0], piece.location[1] + move[1])
-                    if new_pos == location:
-                        # If it could, return True
-                        return True
-        return False
-
-    # Function to identify all the moves that attack a specified location (usually used for the king)
-    def identifyAttacksOnLocation(self, opposingPlayer, location):
-
-        # If we haven't calculated all the opposing players moves yet, calculate them
-        if opposingPlayer == "player1":
-            if self.calculatedAllPlayer1Moves == False:
-                self.allPlayer1Moves = self.calculateAllPossibleMoves(
-                    "player1", self.player1.chessPieces, False, self.player2.chessPieces
-                )
-        else:
-            if self.calculatedAllPlayer2Moves == False:
-                self.allPlayer2Moves = self.calculateAllPossibleMoves(
-                    "player2", self.player2.chessPieces, False, self.player1.chessPieces
-                )
-
-        # Going through all the opposing players actions and seeing if any of them meet the kings locations
-        actionsToCheck = (
-            self.allPlayer1Moves
-            if opposingPlayer == "player1"
-            else self.allPlayer2Moves
-        )
-
-        attackingPieces = []  # Defining list of all pieces directly attacking the king
-        for action in actionsToCheck:
-            # If the actions location matches the king's location, it means that that piece can attack the king
-            if action[1] == location:
-                attackingPieces.append(action[0].location)
-
-        return attackingPieces  # Returning all pieces that can attack the king
-
-    def blockedMove(self, opposingPlayer, location, attackerLocation, blockerLocation):
-        ax, ay = attackerLocation
-        kx, ky = location
-        bx, by = blockerLocation
-
-        dx, dy = kx - ax, ky - ay
-
-        # Normalize direction to unit step
-        def sign(n):
-            return (n > 0) - (n < 0)
-
-        step_x = sign(dx)
-        step_y = sign(dy)
-
-        if blockerLocation == attackerLocation:
-            return True  # Same square
-
-        # Build path from attacker to target
-        cx, cy = ax + step_x, ay + step_y
-        while (cx, cy) != (kx, ky):
-            # If the blocker location is identified within the path, attack blocked
-            if (cx, cy) == (bx, by):
-                return True
-            cx += step_x
-            cy += step_y
-
-        return False
-
-    # Function to identify the possible moves a piece can make
-    def identifyPossibleMoves(self, piece, playerPieces, opponentPieces):
-        possibleMoves = []
-        allPieceActions = piece.actions + piece.getSpecialMoves(
-            playerPieces, opponentPieces
-        )
-        for action in allPieceActions:
-            if piece.color == "white":
-                # Multiplying the action by -1 as we are moving in the opposite direction, up the board
-                action = (action[0] * -1, action[1] * -1)
-            new_pos = (piece.location[0] + action[0], piece.location[1] + action[1])
-            # Ensuring the (x,y) values are between 1 and 8
-            if 1 <= new_pos[0] <= 8 and 1 <= new_pos[1] <= 8:
-                # Ensuring that none of the player's pieces are located at the new moves location
-                if all(pPiece.location != new_pos for pPiece in playerPieces):
-                    # Implement the code to check for blockers here, and reject if necessary
-                    # Not implementing checks for Knights, as they can't be blocked
-                    if type(piece) != Knight:
-                        # Calculating the blocker locations for the current piece
-                        piece.checkBlockerLocations(
-                            self.player1.chessPieces + self.player2.chessPieces,
-                            self.moveNmb,
-                        )
-                        # Calculating the direction of the current action
-                        tempAction = action
-                        # Reverting back the action, so we can determine the correct way the piece is moving
-                        if piece.color == "white":
-                            tempAction = (tempAction[0] * -1, tempAction[1] * -1)
-                        direction = piece.getDirectionFromAction(tempAction)
-                        # Determining whether the move is blocked or not
-                        blocked = piece.checkBlockedMove(new_pos, direction)
-                        # If the move is blocked, move to the next action
-                        if blocked:
-                            continue
-                    # If no blockers, add the move to possible moves
-                    possibleMoves.append([piece, new_pos])
-        return possibleMoves
-
-    # Function to get the current moves that a piece can make, given the piece and all the possible actions the player could make
-    def getPossibleMoves(self, piece, allPossibleMoves):
-        for move in allPossibleMoves:
-            if move[0] == piece:
-                self.possibleMoves.append(move[1])
-                self.highlightedSquares.append(move[1])
-                self.changeGridSpaceColor(move[1], HIGHLIGHT)
-
     # Function to update the outputted UI display
     def _update_ui(self, resetGrid):
         # Resetting the display of the board
@@ -352,19 +170,6 @@ class ChessGameAI:
             )
         # Updating the display to show the pieces
         pygame.display.update()
-
-    # Function to calculate a players score
-    def calculateScore(self, player):
-        score = 0
-        for piece in player.chessPieces:
-            score += piece.value
-        return score
-
-    # Function to correctly format the outputted scores
-    def plus_prefix(self, val):
-        if val > 0:
-            return "+" + str(val)
-        return val
 
     # Function to perform a move on the board
     def _move(self, action, opponentPieces):
@@ -458,6 +263,19 @@ class ChessGameAI:
         self.moveNmb += 1
 
         return reward
+
+    # Function to calculate a players score
+    def calculateScore(self, player):
+        score = 0
+        for piece in player.chessPieces:
+            score += piece.value
+        return score
+
+    # Function to correctly format the outputted scores
+    def plus_prefix(self, val):
+        if val > 0:
+            return "+" + str(val)
+        return val
 
     # Allowing the user for Pawn Promotion, given the option they select
     def promote_pawn(self, piece_name):

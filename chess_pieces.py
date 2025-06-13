@@ -23,13 +23,7 @@ class ChessPiece:
         }
 
     # Function to check for the blocker locations from the current piece
-    def checkBlockerLocations(self, gamePieces, moveNmb):
-        # If the moveNmb hasn't changed from the last time the blockers were calculated, return as blockers remain the same
-        if self.blockerLocations["moveNmb"] == moveNmb:
-            return
-        else:
-            self.blockerLocations["moveNmb"] = moveNmb
-
+    def checkBlockerLocations(self, gamePieces):
         # Looping through all the directions we want to identify blockers for
         for direction in list(self.blockerLocations.keys())[1:]:
             # Finding out the direction we need to move in
@@ -159,6 +153,8 @@ class Pawn(ChessPiece):
         self.moved = False
         # Defining the pieces value
         self.value = 1
+        # Defining the index of the piece within the piece location tensor
+        self.tensor_idx = 0 if self.color == "white" else 6
 
     # Function to add any special moves for the Pawn
     def getSpecialMoves(self, playerPieces, opponentPieces):
@@ -185,6 +181,57 @@ class Pawn(ChessPiece):
                     specialMoves.append((-1, 1))
 
         return specialMoves
+
+
+class Knight(ChessPiece):
+    def __init__(self, x, y, color, id):
+        super().__init__(x, y, color, id)
+        # Setting the image of the piece, to be displayed to the screen
+        self.imageSrc = (
+            "./images/knight.png"
+            if self.color == "white"
+            else "./images/knightBlack.png"
+        )
+        self.image = pygame.image.load(self.imageSrc).convert_alpha()
+        # Defining the actions a rook can make
+        self.actions = [
+            (x, y) for x in [-2, -1, 1, 2] for y in [-2, -1, 1, 2] if abs(x) != abs(y)
+        ]
+        # Defining the pieces value
+        self.value = 3
+        # Defining the index of the piece within the piece location tensor
+        self.tensor_idx = 1 if self.color == "white" else 7
+
+
+class Bishop(ChessPiece):
+    def __init__(self, x, y, color, id):
+        super().__init__(x, y, color, id)
+        # Setting the image of the piece, to be displayed to the screen
+        self.imageSrc = (
+            "./images/bishop.png"
+            if self.color == "white"
+            else "./images/bishopBlack.png"
+        )
+        self.image = pygame.image.load(self.imageSrc).convert_alpha()
+        # Defining the actions a rook can make
+        self.actions = (
+            [(i, i) for i in range(1, 8)]  # Up and Right
+            + [(i, -i) for i in range(1, 8)]  # Down and Right
+            + [(-i, i) for i in range(1, 8)]  # Up and Left
+            + [(-i, -i) for i in range(1, 8)]  # Down and Left
+        )
+        # Defining the locations of the blockers for the rook
+        self.blockerLocations = {
+            "moveNmb": None,
+            "forwardRight": None,
+            "forwardLeft": None,
+            "backwardRight": None,
+            "backwardLeft": None,
+        }
+        # Defining the pieces value
+        self.value = 3
+        # Defining the index of the piece within the piece location tensor
+        self.tensor_idx = 2 if self.color == "white" else 8
 
 
 class Rook(ChessPiece):
@@ -215,53 +262,8 @@ class Rook(ChessPiece):
         self.moved = False
         # Defining the pieces value
         self.value = 5
-
-
-class Knight(ChessPiece):
-    def __init__(self, x, y, color, id):
-        super().__init__(x, y, color, id)
-        # Setting the image of the piece, to be displayed to the screen
-        self.imageSrc = (
-            "./images/knight.png"
-            if self.color == "white"
-            else "./images/knightBlack.png"
-        )
-        self.image = pygame.image.load(self.imageSrc).convert_alpha()
-        # Defining the actions a rook can make
-        self.actions = [
-            (x, y) for x in [-2, -1, 1, 2] for y in [-2, -1, 1, 2] if abs(x) != abs(y)
-        ]
-        # Defining the pieces value
-        self.value = 3
-
-
-class Bishop(ChessPiece):
-    def __init__(self, x, y, color, id):
-        super().__init__(x, y, color, id)
-        # Setting the image of the piece, to be displayed to the screen
-        self.imageSrc = (
-            "./images/bishop.png"
-            if self.color == "white"
-            else "./images/bishopBlack.png"
-        )
-        self.image = pygame.image.load(self.imageSrc).convert_alpha()
-        # Defining the actions a rook can make
-        self.actions = (
-            [(i, i) for i in range(1, 8)]  # Up and Right
-            + [(i, -i) for i in range(1, 8)]  # Down and Right
-            + [(-i, i) for i in range(1, 8)]  # Up and Left
-            + [(-i, -i) for i in range(1, 8)]  # Down and Left
-        )
-        # Defining the locations of the blockers for the rook
-        self.blockerLocations = {
-            "moveNmb": None,
-            "forwardRight": None,
-            "forwardLeft": None,
-            "backwardRight": None,
-            "backwardLeft": None,
-        }
-        # Defining the pieces value
-        self.value = 3
+        # Defining the index of the piece within the piece location tensor
+        self.tensor_idx = 3 if self.color == "white" else 9
 
 
 class Queen(ChessPiece):
@@ -298,6 +300,8 @@ class Queen(ChessPiece):
         }
         # Defining the pieces value
         self.value = 10
+        # Defining the index of the piece within the piece location tensor
+        self.tensor_idx = 4 if self.color == "white" else 10
 
 
 class King(ChessPiece):
@@ -329,6 +333,8 @@ class King(ChessPiece):
         self.moved = False
         # Defining the pieces value
         self.value = 1000
+        # Defining the index of the piece within the piece location tensor
+        self.tensor_idx = 5 if self.color == "white" else 11
 
     # Function to find ALL the possible moves the player could make
     def calculateAllPossibleMoves(self, playerPieces, opponentPieces):
@@ -364,10 +370,7 @@ class King(ChessPiece):
                     # Not implementing checks for Knights, as they can't be blocked
                     if type(piece) != Knight:
                         # Calculating the blocker locations for the current piece
-                        piece.checkBlockerLocations(
-                            playerPieces + opponentPieces,
-                            self.blockerLocations["moveNmb"],
-                        )
+                        piece.checkBlockerLocations(playerPieces + opponentPieces)
                         # Calculating the direction of the current action
                         tempAction = action
                         # Reverting back the action, so we can determine the correct way the piece is moving
