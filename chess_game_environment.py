@@ -4,7 +4,7 @@ from chess_game_popup import show_popup
 import sys
 
 # Initialising the PyGame environment
-pygame.init()
+# pygame.init()
 
 # Defining the different colours used throughout the game
 LIGHT = (240, 217, 181)
@@ -140,7 +140,14 @@ class ChessGameAI:
         opposition_moves = self.playerTurn.calculateAllPossibleMoves(
             True, currentPlayer, playerPieces
         )
-        checkmate = True if opposition_moves == [] else False
+        checkmate = (
+            True
+            if opposition_moves == []
+            or opposition_score < 800
+            or opposition_score == player_score
+            and player_score == 1000
+            else False
+        )
 
         # Code to update the UI once the action has been made
         self._update_ui(True)
@@ -202,11 +209,7 @@ class ChessGameAI:
             )  # Finding that pieces final rank
             if self.currentPiece.location[1] == final_rank:
                 # Making sure they select a valid option, by continuously showing the popup
-                choice = None
-                while choice == None:
-                    choice = (
-                        show_popup()
-                    )  # Showing the popup asking the user for response
+                choice = "Queen"
                 self.promote_pawn(choice)  # Promoting the pawn
 
         # If the king makes a castling move, move the rook aswell to the correct place

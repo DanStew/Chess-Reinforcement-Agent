@@ -159,29 +159,38 @@ class ChessAgent:
         if checkmateCheck:
             kingAttacks = self.identifyAttacksOnLocation(opponent, kingLocation)
 
-            # If there are any pieces that can attack the king
-            if len(kingAttacks) > 0:
-                # Iterating over a copy of allPossibleMoves, so we can remove actions without affecting the for loop
-                for action in allPossibleMoves[:]:
-                    if len(allPossibleMoves) == 0:
-                        break
-                    # For every action that involves the king
-                    if action[0] == king:
-                        # If the king's move still leads to the king attacked, pop it from the list
-                        if (
-                            len(self.identifyAttacksOnLocation(opponent, action[1]))
-                            != 0
-                        ):
+            # Iterating over a copy of allPossibleMoves, so we can remove actions without affecting the for loop
+            for action in allPossibleMoves[:]:
+                if len(allPossibleMoves) == 0:
+                    break
+                # For every action that involves the king
+                if action[0] == king:
+                    # If the king's move still leads to the king attacked, pop it from the list
+                    if len(self.identifyAttacksOnLocation(opponent, action[1])) != 0:
+                        allPossibleMoves.remove(action)
+                    # Checking whether any of the opponents pieces has the action as a blocker
+                    elif self.checkOpponentBlockers(opponentPieces, action[1]):
+                        allPossibleMoves.remove(action)
+                # Only applying the blocker checks if there is only one piece attacking the king
+                elif len(kingAttacks) == 1:
+                    if not self.blockedMove(kingLocation, kingAttacks[0], action[1]):
+                        allPossibleMoves.remove(action)
+                # Checking whether making the action will discover an attack on the king
+                else:
+                    # Simulating moving the piece
+                    original_location = action[0].location
+                    action[0].location = action[1]
+                    # Calculating all the moves that could be made if the piece was moved
+                    opponent_possible_moves = self.calculateAllPossibleMoves(
+                        False, self, self.chessPieces
+                    )
+                    # If any of the moves is a direct attack on the king, don't allow the original move to be made
+                    for move in opponent_possible_moves:
+                        if move[1] == kingLocation:
                             allPossibleMoves.remove(action)
-                        # Checking whether any of the opponents pieces has the action as a blocker
-                        elif self.checkOpponentBlockers(opponentPieces, action[1]):
-                            allPossibleMoves.remove(action)
-                    # Only applying the blocker checks if there is only one piece attacking the king
-                    elif len(kingAttacks) == 1:
-                        if not self.blockedMove(
-                            kingLocation, kingAttacks[0], action[1]
-                        ):
-                            allPossibleMoves.remove(action)
+                            break
+                    # Return piece back to its original location
+                    action[0].location = original_location
 
         return allPossibleMoves
 
@@ -309,7 +318,7 @@ def train():
             player2.n_games += 1
             game.playerTurn.train_long_memory()
 
-        time.sleep(2)
+        time.sleep(1.5)
 
 
 if __name__ == "__main__":
