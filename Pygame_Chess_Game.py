@@ -373,7 +373,7 @@ class ChessGame:
                     if type(piece) != Knight:
                         # Calculating the blocker locations for the current piece
                         piece.checkBlockerLocations(
-                            player1.chessPieces + player2.chessPieces, self.moveNmb
+                            player1.chessPieces + player2.chessPieces
                         )
                         # Calculating the direction of the current action
                         tempAction = action

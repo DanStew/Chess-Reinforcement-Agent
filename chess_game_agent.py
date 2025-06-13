@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import random
 from collections import deque
+import time
 
 # Defining some constant parameters used throughout the agent
 MAX_MEMORY = 100_000
@@ -23,7 +24,7 @@ class ChessAgent:
             maxlen=MAX_MEMORY
         )  # If you exceed MAX_MEMORY, it automatically pops items from the deque
         self.model = LinearQNet(
-            64, 512, 4096
+            8, 512, 64
         )  # Needs input size, hidden layer size and output size
         self.trainer = QTrainer(LR, self.gamma, self.model)
 
@@ -56,22 +57,38 @@ class ChessAgent:
         acceptableMoves = self.calculateAllPossibleMoves(
             True, opponent, opponent.chessPieces
         )
+
         # Make actions with a balance between randomness and exploitation
         self.epsilon = 80 - self.n_games  # Lower randomness as more games
-        final_move = None
-        # If the randomly generated number is <epsilon, move in a random direction
-        # NOTE : If we play >80 games, epsilon is negative and agent will no longer choose any random move
-        if random.randint(0, 40) < self.epsilon:
+        # Deciding whether to choose random move or not
+        if random.randint(0, 200) < self.epsilon:
             # Choosing a random move and setting it to 1
-            idx = random.randint(0, len(acceptableMoves) - 1)
-            final_move = acceptableMoves[idx]
-        # Using the model to choose the move
+            moveIdx = random.randint(0, len(acceptableMoves) - 1)
+            finalMove = acceptableMoves[moveIdx]
         else:
-            # Making a prediction for the next move, using the state
-            prediction = self.model(state)
-            print(prediction)
 
-        return final_move
+            state0 = torch.tensor(
+                state, dtype=torch.float
+            )  # Converting state into a tensor
+            prediction = self.model(state0)[0][
+                0
+            ]  # Making a prediction, outputs a 13-8-64 tensor so take the first one
+
+            finalMove = None
+            while finalMove is None:
+                moveIdx = torch.argmax(
+                    prediction
+                ).item()  # .item() is used to convert outputted tensor into a number
+
+                board_coordinate = self.getCoordinate(moveIdx)
+
+                for move in acceptableMoves:
+                    if move[1] == board_coordinate:
+                        finalMove = move
+
+                prediction[moveIdx] = -1
+
+        return finalMove
 
     # Function to append informations to the agent's memory
     def remember(self, old_state, final_move, reward, new_state, checkmate):
@@ -85,6 +102,7 @@ class ChessAgent:
 
     # Function to train the agent's long memory
     def train_long_memory(self):
+        print("Running train_long_memory")
         # If we have enough items in memory, get a random batch from memory
         if len(self.memory) > BATCH_SIZE:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
@@ -114,6 +132,12 @@ class ChessAgent:
             x, y = move[1]
             vulnerableSquares[y - 1][x - 1] = 1
         return vulnerableSquares
+
+    # Function to turn a position within the prediction to a coordinate
+    def getCoordinate(self, idx):
+        x = idx % 8 + 1
+        y = idx // 8 + 1
+        return x, y
 
     # Function to find ALL the possible moves the player could make
     def calculateAllPossibleMoves(self, checkmateCheck, opponent, opponentPieces=None):
@@ -279,10 +303,13 @@ def train():
 
         # If the agent has checkmated the opponent
         if checkmate:
+            print("Checkmate has occurred")
             game.reset()
             player1.n_games += 1
             player2.n_games += 1
-            # game.playerTurn.train_long_memory()
+            game.playerTurn.train_long_memory()
+
+        time.sleep(2)
 
 
 if __name__ == "__main__":

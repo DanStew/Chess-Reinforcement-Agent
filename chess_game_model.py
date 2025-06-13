@@ -15,9 +15,8 @@ class LinearQNet(nn.Module):
 
     # Function to go forward through the neural network layers we have defined
     def forward(self, currentVal):
-        flattened_val = currentVal.view(currentVal.size(0), -1)
         # Input --> Hidden
-        currentVal = F.relu(self.linear1(flattened_val))
+        currentVal = F.relu(self.linear1(currentVal))
         # Hidden --> Output
         return F.relu(self.linear2(currentVal))
 
@@ -46,6 +45,11 @@ class QTrainer:
         # Our Loss Function is the Mean Squared Error function
         self.criterion = nn.MSELoss()
 
+    # Converting a (x,y) tuple into a idx
+    def getIndexFromCoordinate(self, coordinate):
+        x, y = coordinate[0] - 1, coordinate[1] - 1
+        return x + y * 8
+
     # Training the model
     def train_step(self, state, final_move, reward, next_state, checkmate):
         # Converting some of the inputs to tensors
@@ -54,30 +58,31 @@ class QTrainer:
         reward = torch.tensor(reward, dtype=torch.float)
 
         # Checking if we are working with 1 value or lists of values
-        if len(state.shape) == 1:
+        if len(state.shape) == 3:
             # Needs these attributes in the form (1,x) so this is what the code below is doing
             # If we have a list of attributes, they are already in this form so we don't need to worry then
             state = torch.unsqueeze(state, 0)
             next_state = torch.unsqueeze(next_state, 0)
             reward = torch.unsqueeze(reward, 0)
-            done = (done,)
+            final_move = (final_move,)
 
         # Predict the Q values with the current state
         pred = self.model(state)
         # Creating a clone of the prediction
         target = pred.clone()
-        # Going over all the values in the tensor
-        # for idx in range(reward):
-        #    # Setting Q_new to be the reward at the current index
-        #    Q_new = reward[idx]
-        #    # Only apply the next parameters formula if the game isn't over at this step
-        #    if not checkmate[idx]:
-        #        # Applying the formula to get the next set of parameters
-        #        # Only multiple by 1 value, the max of the predicted Q value for the next state
-        #        Q_new = Q_new + self.gamma * torch.max(self.model(next_state[idx]))
-        #
-        #    # Setting the new target value to be Q_new at the maximum value of action
-        #    target[idx][torch.argmax(reward).item()] = Q_new
+        # Going over all the values given
+        for idx in range(len(state)):
+            # Setting Q_new to be the reward at the current index
+            Q_new = reward
+            # Applying the formula to get the next set of parameters
+            # Only multiple by 1 value, the max of the predicted Q value for the next state
+            Q_new = Q_new + self.gamma * torch.max(self.model(next_state[idx]))
+
+            # Getting the coordinate for the move at the current idx
+            moveIdx = self.getIndexFromCoordinate(final_move[idx][1])
+
+            # Setting the new target value to be Q_new at the maximum value of action
+            target[0][0][0][moveIdx] = Q_new
 
         # Applying the Loss Function
         self.optimiser.zero_grad()  # Emptying the gradient (step needed to learn within PyTorch)
@@ -85,3 +90,45 @@ class QTrainer:
         loss.backward()  # Applying backpropagation
 
         self.optimiser.step()
+
+
+def train_step(self, state, action, reward, next_state, done):
+    # Converting some of the inputs to tensors
+    state = torch.tensor(state, dtype=torch.float)
+    next_state = torch.tensor(next_state, dtype=torch.float)
+    action = torch.tensor(action, dtype=torch.float)
+    reward = torch.tensor(reward, dtype=torch.float)
+
+    # Checking if we are working with 1 value or lists of values
+    if len(state.shape) == 1:
+        # Needs these attributes in the form (1,x) so this is what the code below is doing
+        # If we have a list of attributes, they are already in this form so we don't need to worry then
+        state = torch.unsqueeze(state, 0)
+        next_state = torch.unsqueeze(next_state, 0)
+        action = torch.unsqueeze(action, 0)
+        reward = torch.unsqueeze(reward, 0)
+        done = (done,)
+
+    # Predict the Q values with the current state
+    pred = self.model(state)
+    # Creating a clone of the prediction
+    target = pred.clone()
+    # Going over all the values in the tensor
+    for idx in range(len(done)):
+        # Setting Q_new to be the reward at the current index
+        Q_new = reward[idx]
+        # Only apply the next parameters formula if the game isn't over at this step
+        if not done[idx]:
+            # Applying the formula to get the next set of parameters
+            # Only multiple by 1 value, the max of the predicted Q value for the next state
+            Q_new = Q_new + self.gamma * torch.max(self.model(next_state[idx]))
+
+        # Setting the new target value to be Q_new at the maximum value of action
+        target[idx][torch.argmax(action).item()] = Q_new
+
+    # Applying the Loss Function
+    self.optimiser.zero_grad()  # Emptying the gradient (step needed to learn within PyTorch)
+    loss = self.criterion(target, pred)
+    loss.backward()  # Applying backpropagation
+
+    self.optimiser.step()
