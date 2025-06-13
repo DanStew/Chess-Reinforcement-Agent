@@ -1,12 +1,37 @@
 from chess_game_environment import ChessGameAI
+from chess_game_model import LinearQNet, QTrainer
 from chess_pieces import Pawn, Knight, Bishop, Rook, Queen, King
 import numpy as np
+import torch
+import random
+from collections import deque
+
+# Defining some constant parameters used throughout the agent
+MAX_MEMORY = 100_000
+BATCH_SIZE = 1000
+LR = 0.001  # Learning Rate
 
 
 class ChessAgent:
-    def __init__(self):
-        self.n_games = 0
+    def __init__(self, file_path=""):
         self.chessPieces = []
+        self.n_games = 0
+        self.epsilon = 0  # Parameter to control the randomness of the agent
+        self.gamma = 0.9  # Discount rate (included as part of the model and trainer)
+        # Defining some memory structure for the agent
+        self.memory = deque(
+            maxlen=MAX_MEMORY
+        )  # If you exceed MAX_MEMORY, it automatically pops items from the deque
+        self.model = LinearQNet(
+            64, 512, 4096
+        )  # Needs input size, hidden layer size and output size
+        self.trainer = QTrainer(LR, self.gamma, self.model)
+
+        # Loading into the model for the model if the file name is given
+        if file_path != "":
+            self.model.load_state_dict(
+                torch.load(file_path)
+            )  # Path to your saved model
 
     # Function to get the agent's state
     def get_state(self, opponent):
@@ -26,20 +51,52 @@ class ChessAgent:
         return np.concatenate([piece_position_tensor, vulnerable_squares_plane], axis=0)
 
     # Function to get a move from a state
-    def get_move(self, state):
-        pass
+    def get_move(self, opponent, state):
+        # Defining the list of all acceptable moves that could be made
+        acceptableMoves = self.calculateAllPossibleMoves(
+            True, opponent, opponent.chessPieces
+        )
+        # Make actions with a balance between randomness and exploitation
+        self.epsilon = 80 - self.n_games  # Lower randomness as more games
+        final_move = None
+        # If the randomly generated number is <epsilon, move in a random direction
+        # NOTE : If we play >80 games, epsilon is negative and agent will no longer choose any random move
+        if random.randint(0, 40) < self.epsilon:
+            # Choosing a random move and setting it to 1
+            idx = random.randint(0, len(acceptableMoves) - 1)
+            final_move = acceptableMoves[idx]
+        # Using the model to choose the move
+        else:
+            # Making a prediction for the next move, using the state
+            prediction = self.model(state)
+            print(prediction)
+
+        return final_move
 
     # Function to append informations to the agent's memory
     def remember(self, old_state, final_move, reward, new_state, checkmate):
-        pass
+        # Appending all the items recieved to memory
+        # NOTE : All items are stored as part of 1 tuple, not stored separately
+        self.memory.append((old_state, final_move, reward, new_state, checkmate))
 
     # Function to train the agent's short memory
     def train_short_memory(self, old_state, final_move, reward, new_state, checkmate):
-        pass
+        self.trainer.train_step(old_state, final_move, reward, new_state, checkmate)
 
     # Function to train the agent's long memory
     def train_long_memory(self):
-        pass
+        # If we have enough items in memory, get a random batch from memory
+        if len(self.memory) > BATCH_SIZE:
+            mini_sample = random.sample(self.memory, BATCH_SIZE)
+        else:
+            mini_sample = self.memory
+
+        # Extracting the separate states, action, etc from each of the tuples extracted
+        # As each tuple has a state, action, etc. This code just goes through each tuple and extracts the value
+        # It combines them into separate arrays for each of the values
+        states, actions, rewards, next_states, dones = zip(*mini_sample)
+        # Passing these extracted states into the train_step function
+        self.trainer.train_step(states, actions, rewards, next_states, dones)
 
     # Function to make the Piece Position Tensor, to describe the position of all the pieces
     def calculatePiecePositionTensor(self, gamePieces):
@@ -208,9 +265,9 @@ def train():
     while True:
         opponent = player2 if game.playerTurn == player1 else player1
         old_state = game.playerTurn.get_state(opponent)
-        final_move = game.playerTurn.get_move(old_state)
+        final_move = game.playerTurn.get_move(opponent, old_state)
         reward, checkmate, score = game.play_step(final_move)
-        new_state = game.playerTurn.get_state()
+        new_state = game.playerTurn.get_state(opponent)
 
         # Training the short memory
         game.playerTurn.train_short_memory(
@@ -225,7 +282,7 @@ def train():
             game.reset()
             player1.n_games += 1
             player2.n_games += 1
-            game.playerTurn.train_long_memory()
+            # game.playerTurn.train_long_memory()
 
 
 if __name__ == "__main__":

@@ -137,7 +137,7 @@ class ChessGameAI:
 
         # Calculating all the moves the opponent can now make
         opposition_moves = self.playerTurn.calculateAllPossibleMoves(
-            opponentPieces, True, playerPieces
+            True, currentPlayer, playerPieces
         )
         checkmate = True if opposition_moves == [] else False
 
