@@ -4,7 +4,7 @@ from chess_game_popup import show_popup
 import sys
 
 # Initialising the PyGame environment
-# pygame.init()
+pygame.init()
 
 # Defining the different colours used throughout the game
 LIGHT = (240, 217, 181)
@@ -113,6 +113,13 @@ class ChessGameAI:
 
     # Function to process an action on the board, and call the function to perform the move
     def play_step(self, action):
+        # Processing pygame events, if any
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+
+        pygame.event.pump()
+
         # Storing who the currently player was
         currentPlayer = self.playerTurn
         # Getting the player's pieces
@@ -140,6 +147,7 @@ class ChessGameAI:
         opposition_moves = self.playerTurn.calculateAllPossibleMoves(
             True, currentPlayer, playerPieces
         )
+
         checkmate = (
             True
             if opposition_moves == []
@@ -151,11 +159,6 @@ class ChessGameAI:
 
         # Code to update the UI once the action has been made
         self._update_ui(True)
-
-        # Processing pygame events, if any
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                sys.exit()
 
         # Returning the reward from the move, the player's current score and whether checkmate or not
         return reward, checkmate, score

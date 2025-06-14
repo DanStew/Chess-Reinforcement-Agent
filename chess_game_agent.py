@@ -5,7 +5,8 @@ import numpy as np
 import torch
 import random
 from collections import deque
-import time
+import cProfile
+import pstats
 
 # Defining some constant parameters used throughout the agent
 MAX_MEMORY = 100_000
@@ -14,7 +15,7 @@ LR = 0.001  # Learning Rate
 
 
 class ChessAgent:
-    def __init__(self, file_path=""):
+    def __init__(self):
         self.chessPieces = []
         self.n_games = 0
         self.epsilon = 0  # Parameter to control the randomness of the agent
@@ -28,11 +29,9 @@ class ChessAgent:
         )  # Needs input size, hidden layer size and output size
         self.trainer = QTrainer(LR, self.gamma, self.model)
 
-        # Loading into the model for the model if the file name is given
-        if file_path != "":
-            self.model.load_state_dict(
-                torch.load(file_path)
-            )  # Path to your saved model
+    # Function to load in a model, if needed
+    def loadModel(self, file_path):
+        self.model.load_state_dict(torch.load(file_path))  # Path to your saved model
 
     # Function to get the agent's state
     def get_state(self, opponent):
@@ -59,9 +58,9 @@ class ChessAgent:
         )
 
         # Make actions with a balance between randomness and exploitation
-        self.epsilon = 80 - self.n_games  # Lower randomness as more games
+        self.epsilon = 400 - self.n_games  # Lower randomness as more games
         # Deciding whether to choose random move or not
-        if random.randint(0, 200) < self.epsilon:
+        if random.randint(0, 400) < self.epsilon:
             # Choosing a random move and setting it to 1
             moveIdx = random.randint(0, len(acceptableMoves) - 1)
             finalMove = acceptableMoves[moveIdx]
@@ -102,7 +101,6 @@ class ChessAgent:
 
     # Function to train the agent's long memory
     def train_long_memory(self):
-        print("Running train_long_memory")
         # If we have enough items in memory, get a random batch from memory
         if len(self.memory) > BATCH_SIZE:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
@@ -294,8 +292,11 @@ def train():
     player1 = ChessAgent()
     player2 = ChessAgent()
     game = ChessGameAI(player1, player2)
+    winners = []
+    count = 0
 
     while True:
+        currentPlayer = game.playerTurn
         opponent = player2 if game.playerTurn == player1 else player1
         old_state = game.playerTurn.get_state(opponent)
         final_move = game.playerTurn.get_move(opponent, old_state)
@@ -303,24 +304,55 @@ def train():
         new_state = game.playerTurn.get_state(opponent)
 
         # Training the short memory
-        game.playerTurn.train_short_memory(
+        currentPlayer.train_short_memory(
             old_state, final_move, reward, new_state, checkmate
+        )
+        opponent.train_short_memory(
+            old_state, final_move, -reward, new_state, checkmate
         )
 
         # Remember this information
-        game.playerTurn.remember(old_state, final_move, reward, new_state, checkmate)
+        currentPlayer.remember(old_state, final_move, reward, new_state, checkmate)
+        opponent.remember(old_state, final_move, -reward, new_state, checkmate)
+
+        if count == 20:
+            return
 
         # If the agent has checkmated the opponent
         if checkmate:
-            print("Checkmate has occurred")
+            player = "Player 1" if currentPlayer == player1 else "Player 2"
+            print(player + " won the game")
+            currentPlayer.train_long_memory()
+            opponent.train_long_memory()
             game.reset()
             player1.n_games += 1
             player2.n_games += 1
-            game.playerTurn.train_long_memory()
+            # Saving the winning players model
+            currentPlayer.model.save("model.pth")
+            # Appending the current player to the list of winners
+            winners.append(currentPlayer)
+            # If the currentPlayer has won the last 3 games, update the opponents model
+            latest_winners = winners[len(winners) - 3 :]
+            if all(currentPlayer == player for player in latest_winners):
+                print("Updating opponents model")
+                opponent.loadModel("./model/model.pth")
 
-        time.sleep(1.5)
+        count += 1
 
 
 if __name__ == "__main__":
     print("Beginning ChessAgent Program")
-    train()
+
+    # --- Run the game with profiling ---
+    cProfile.run("train()", "game_profile.prof")
+
+    # --- Analyze the profile data (run this part after the game finishes) ---
+    p = pstats.Stats("game_profile.prof")
+    p.strip_dirs().sort_stats("cumtime").print_stats(
+        20
+    )  # Top 20 functions by cumulative time
+    p.strip_dirs().sort_stats("tottime").print_stats(
+        20
+    )  # Top 20 functions by total time (excluding sub-calls)
+
+    # train()
