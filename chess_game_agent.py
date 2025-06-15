@@ -5,11 +5,11 @@ import numpy as np
 import torch
 import random
 from collections import deque
-import cProfile
-import pstats
+import pygame
+import sys
 
 # Defining some constant parameters used throughout the agent
-MAX_MEMORY = 100_000
+MAX_MEMORY = 2000
 BATCH_SIZE = 1000
 LR = 0.001  # Learning Rate
 
@@ -296,6 +296,7 @@ def train():
     count = 0
 
     while True:
+
         currentPlayer = game.playerTurn
         opponent = player2 if game.playerTurn == player1 else player1
         old_state = game.playerTurn.get_state(opponent)
@@ -307,16 +308,10 @@ def train():
         currentPlayer.train_short_memory(
             old_state, final_move, reward, new_state, checkmate
         )
-        opponent.train_short_memory(
-            old_state, final_move, -reward, new_state, checkmate
-        )
 
         # Remember this information
         currentPlayer.remember(old_state, final_move, reward, new_state, checkmate)
         opponent.remember(old_state, final_move, -reward, new_state, checkmate)
-
-        if count == 20:
-            return
 
         # If the agent has checkmated the opponent
         if checkmate:
@@ -337,22 +332,7 @@ def train():
                 print("Updating opponents model")
                 opponent.loadModel("./model/model.pth")
 
-        count += 1
-
 
 if __name__ == "__main__":
     print("Beginning ChessAgent Program")
-
-    # --- Run the game with profiling ---
-    cProfile.run("train()", "game_profile.prof")
-
-    # --- Analyze the profile data (run this part after the game finishes) ---
-    p = pstats.Stats("game_profile.prof")
-    p.strip_dirs().sort_stats("cumtime").print_stats(
-        20
-    )  # Top 20 functions by cumulative time
-    p.strip_dirs().sort_stats("tottime").print_stats(
-        20
-    )  # Top 20 functions by total time (excluding sub-calls)
-
-    # train()
+    train()

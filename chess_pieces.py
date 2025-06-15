@@ -132,13 +132,16 @@ class ChessPiece:
 
 
 class Pawn(ChessPiece):
-    def __init__(self, x, y, color, id):
+    def __init__(self, x, y, color, id, blockSize):
         super().__init__(x, y, color, id)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
             "./images/pawn.png" if self.color == "white" else "./images/pawnBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
+        self.scaled_image = pygame.transform.scale(
+            self.image, (blockSize - 4, blockSize - 4)
+        )
         # Defining the actions a pawn can make
         # NOTE : En Passant isn't included within the initial actions
         self.actions = [(0, 1)]
@@ -184,7 +187,7 @@ class Pawn(ChessPiece):
 
 
 class Knight(ChessPiece):
-    def __init__(self, x, y, color, id):
+    def __init__(self, x, y, color, id, blockSize):
         super().__init__(x, y, color, id)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
@@ -193,6 +196,9 @@ class Knight(ChessPiece):
             else "./images/knightBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
+        self.scaled_image = pygame.transform.scale(
+            self.image, (blockSize - 4, blockSize - 4)
+        )
         # Defining the actions a rook can make
         self.actions = [
             (x, y) for x in [-2, -1, 1, 2] for y in [-2, -1, 1, 2] if abs(x) != abs(y)
@@ -204,7 +210,7 @@ class Knight(ChessPiece):
 
 
 class Bishop(ChessPiece):
-    def __init__(self, x, y, color, id):
+    def __init__(self, x, y, color, id, blockSize):
         super().__init__(x, y, color, id)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
@@ -213,6 +219,9 @@ class Bishop(ChessPiece):
             else "./images/bishopBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
+        self.scaled_image = pygame.transform.scale(
+            self.image, (blockSize - 4, blockSize - 4)
+        )
         # Defining the actions a rook can make
         self.actions = (
             [(i, i) for i in range(1, 8)]  # Up and Right
@@ -235,7 +244,7 @@ class Bishop(ChessPiece):
 
 
 class Rook(ChessPiece):
-    def __init__(self, x, y, color, id):
+    def __init__(self, x, y, color, id, blockSize):
         super().__init__(x, y, color, id)
         self.moved = False  # Used to check for possible castle
         # Setting the image of the piece, to be displayed to the screen
@@ -243,6 +252,9 @@ class Rook(ChessPiece):
             "./images/rook.png" if self.color == "white" else "./images/rookBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
+        self.scaled_image = pygame.transform.scale(
+            self.image, (blockSize - 4, blockSize - 4)
+        )
         # Defining the actions a rook can make
         self.actions = (
             [(i, 0) for i in range(1, 8)]  # Right
@@ -267,13 +279,16 @@ class Rook(ChessPiece):
 
 
 class Queen(ChessPiece):
-    def __init__(self, x, y, color, id):
+    def __init__(self, x, y, color, id, blockSize):
         super().__init__(x, y, color, id)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
             "./images/queen.png" if self.color == "white" else "./images/queenBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
+        self.scaled_image = pygame.transform.scale(
+            self.image, (blockSize - 4, blockSize - 4)
+        )
         # Defining the actions a rook can make
         # The Queen's possible actions are the bishops and rooks added together
         self.actions = (
@@ -305,13 +320,16 @@ class Queen(ChessPiece):
 
 
 class King(ChessPiece):
-    def __init__(self, x, y, color, id):
+    def __init__(self, x, y, color, id, blockSize):
         super().__init__(x, y, color, id)
         # Setting the image of the piece, to be displayed to the screen
         self.imageSrc = (
             "./images/king.png" if self.color == "white" else "./images/kingBlack.png"
         )
         self.image = pygame.image.load(self.imageSrc).convert_alpha()
+        self.scaled_image = pygame.transform.scale(
+            self.image, (blockSize - 4, blockSize - 4)
+        )
         self.moved = False  # Used to check for possible Castle
         # Defining the actions a rook can make
         self.actions = [

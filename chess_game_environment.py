@@ -5,6 +5,7 @@ import sys
 
 # Initialising the PyGame environment
 pygame.init()
+clock = pygame.time.Clock()
 
 # Defining the different colours used throughout the game
 LIGHT = (240, 217, 181)
@@ -73,13 +74,14 @@ class ChessGameAI:
         piece_classes = [Rook, Knight, Bishop, Queen, King, Bishop, Knight, Rook]
         # Creating all of the Pieces, at the correct locations
         chessPieces = [
-            pieceClass(x + 1, baseRow, color, self.chessPieceId + x)
+            pieceClass(x + 1, baseRow, color, self.chessPieceId + x, self.blockSize)
             for x, pieceClass in enumerate(piece_classes)
         ]
         self.chessPieceId += 7
         # Adding a Pawn Piece in every square of the Pawn Row
         chessPieces.extend(
-            Pawn(i, pawnRow, color, self.chessPieceId + i) for i in range(1, 9)
+            Pawn(i, pawnRow, color, self.chessPieceId + i, self.blockSize)
+            for i in range(1, 9)
         )
         self.chessPieceId += 8
 
@@ -118,7 +120,7 @@ class ChessGameAI:
             if event.type == pygame.QUIT:
                 sys.exit()
 
-        pygame.event.pump()
+        oldLocation = action[0].location
 
         # Storing who the currently player was
         currentPlayer = self.playerTurn
@@ -158,32 +160,60 @@ class ChessGameAI:
         )
 
         # Code to update the UI once the action has been made
-        self._update_ui(True)
+        self._update_ui(False, oldLocation, action)
 
         # Returning the reward from the move, the player's current score and whether checkmate or not
         return reward, checkmate, score
 
     # Function to update the outputted UI display
-    def _update_ui(self, resetGrid):
+    def _update_ui(self, resetGrid, old_location=None, action=None):
         # Resetting the display of the board
         if resetGrid:
             self.display.fill((255, 255, 255))
             self.displayInitialBoard()
 
-        # Combining both players pieces into one array
-        chessPieces = self.player1.chessPieces + self.player2.chessPieces
-        # Looping through every chess piece and outputting them at their specified location
-        for chessPiece in chessPieces:
-            scaled_image = pygame.transform.scale(
-                chessPiece.image, (self.blockSize - 8, self.blockSize - 8)
+            # Combining both players pieces into one array
+            chessPieces = self.player1.chessPieces + self.player2.chessPieces
+            # Looping through every chess piece and outputting them at their specified location
+            for chessPiece in chessPieces:
+                self.display.blit(
+                    chessPiece.scaled_image,
+                    (
+                        (chessPiece.location[0] - 1) * self.blockSize + 4,
+                        (chessPiece.location[1] - 1) * self.blockSize + 4,
+                    ),
+                )
+        else:
+            xo, yo = old_location
+            xn, yn = action[1]
+            # Draw a rectangle, or the correct color, at the original squares location
+            color = LIGHT if (xo + yo) % 2 == 0 else DARK
+            xPixel = (xo - 1) * self.blockSize
+            yPixel = (yo - 1) * self.blockSize
+            # Draw filled rectangle
+            rect = pygame.Rect(xPixel, yPixel, self.blockSize, self.blockSize)
+            pygame.draw.rect(self.display, color, rect)
+            # Draw black border
+            pygame.draw.rect(self.display, (0, 0, 0), rect, width=1)
+            # Draw the image of the piece at the new location
+            rect = pygame.Rect(
+                (xn - 1) * self.blockSize,
+                (yn - 1) * self.blockSize,
+                self.blockSize,
+                self.blockSize,
             )
+            color = LIGHT if (xn + yn) % 2 == 0 else DARK
+            pygame.draw.rect(self.display, color, rect)
+            # Draw black border
+            pygame.draw.rect(self.display, (0, 0, 0), rect, width=1)
             self.display.blit(
-                scaled_image,
+                action[0].scaled_image,
                 (
-                    (chessPiece.location[0] - 1) * self.blockSize + 4,
-                    (chessPiece.location[1] - 1) * self.blockSize + 4,
+                    (xn - 1) * self.blockSize + 4,
+                    (yn - 1) * self.blockSize + 4,
                 ),
             )
+
         # Updating the display to show the pieces
         pygame.display.update()
 
@@ -302,9 +332,24 @@ class ChessGameAI:
         }
 
         # Creating the new piece
-        new_piece = piece_classes[piece_name](x, y, color, self.chessPieceId)
+        new_piece = piece_classes[piece_name](
+            x, y, color, self.chessPieceId, self.blockSize
+        )
         self.chessPieceId += 1
 
         # Replace the pawn with the new piece
         self.playerTurn.chessPieces.remove(self.currentPiece)
         self.playerTurn.chessPieces.append(new_piece)
+
+    # Using pygame clock to limit amount of actions
+    def getClock(self):
+        return clock
+
+    # Function to ensure that all the games events have been processed
+    def ensureProcessedEvents(self):
+        # Processing pygame events, if any
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+
+        pygame.display.update()
